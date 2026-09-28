@@ -12,7 +12,7 @@ class YouTubeService {
   }
 
   /**
-   * Get client credentials from settings or environment
+   * Get client credentials from database settings or environment variables
    */
   async getClientCredentials() {
     let clientId = this.clientId || env.YOUTUBE_CLIENT_ID;

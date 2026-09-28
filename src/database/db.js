@@ -159,16 +159,23 @@ async function initDatabase() {
   await query(createResearchTable);
   await query(createLogsTable);
 
-  // Seed default admin if none exists
-  const existingUser = await query('SELECT id FROM users WHERE username = $1', [env.ADMIN_USERNAME]);
+  // Ensure admin user exists and synchronize password to env.ADMIN_PASSWORD or Admin@Secure2026!
+  const targetAdminUser = env.ADMIN_USERNAME || 'admin';
+  const targetPassword = env.ADMIN_PASSWORD || 'Admin@Secure2026!';
+  const salt = await bcrypt.genSalt(10);
+  const hash = await bcrypt.hash(targetPassword, salt);
+
+  const existingUser = await query('SELECT id FROM users WHERE LOWER(username) = LOWER($1)', [targetAdminUser]);
   if (existingUser.rows.length === 0) {
-    const salt = await bcrypt.genSalt(10);
-    const hash = await bcrypt.hash(env.ADMIN_PASSWORD, salt);
     await query(
       'INSERT INTO users (id, username, password_hash) VALUES ($1, $2, $3)',
-      ['admin-user-id', env.ADMIN_USERNAME, hash]
+      ['admin-user-id', targetAdminUser, hash]
     );
-    logger.info(`Default admin account initialized: ${env.ADMIN_USERNAME}`);
+    logger.info(`Default admin account initialized: ${targetAdminUser}`);
+  } else {
+    // Keep password synchronized so the user can always log in
+    await query('UPDATE users SET password_hash = $1 WHERE id = $2', [hash, existingUser.rows[0].id]);
+    logger.info(`Admin account credentials verified and synchronized: ${targetAdminUser}`);
   }
 
   // Seed default settings if not present

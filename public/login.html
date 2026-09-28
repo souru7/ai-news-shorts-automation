@@ -94,17 +94,32 @@
         <input type="password" id="password" required placeholder="Enter admin password">
       </div>
 
-      <button type="submit" class="btn btn-primary" style="width:100%; justify-content:center; padding:14px; font-size:15px; margin-top:10px;">
+      <div style="background:rgba(56, 189, 248, 0.08); border:1px solid rgba(56, 189, 248, 0.2); border-radius:10px; padding:12px; margin-bottom:18px; text-align:left; font-size:12px;">
+        <div style="color:var(--accent-cyan); font-weight:600; margin-bottom:4px;">🔑 Default Credentials:</div>
+        <div style="color:var(--text-muted); font-family:monospace; margin-bottom:6px;">Username: <strong>admin</strong><br>Password: <strong>Admin@Secure2026!</strong></div>
+        <button type="button" onclick="fillDemoCreds()" style="background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.15); color:#fff; border-radius:6px; padding:4px 10px; font-size:11px; cursor:pointer;">Auto-Fill Credentials</button>
+      </div>
+
+      <button type="submit" id="btn-submit" class="btn btn-primary" style="width:100%; justify-content:center; padding:14px; font-size:15px; margin-top:5px;">
         Access Dashboard
       </button>
     </form>
   </div>
 
   <script>
+    function fillDemoCreds() {
+      document.getElementById('username').value = 'admin';
+      document.getElementById('password').value = 'Admin@Secure2026!';
+    }
+
     async function handleLogin(e) {
       e.preventDefault();
       const errBox = document.getElementById('error-box');
       errBox.style.display = 'none';
+
+      const btn = document.getElementById('btn-submit');
+      btn.disabled = true;
+      btn.innerText = 'Authenticating...';
 
       const username = document.getElementById('username').value.trim();
       const password = document.getElementById('password').value;
@@ -123,6 +138,8 @@
       } catch (err) {
         errBox.textContent = err.message;
         errBox.style.display = 'block';
+        btn.disabled = false;
+        btn.innerText = 'Access Dashboard';
       }
     }
   </script>

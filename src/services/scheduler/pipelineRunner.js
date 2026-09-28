@@ -25,14 +25,18 @@ class PipelineRunner {
    */
   async getTodayStats() {
     const todayStr = this.getTodayDateString();
-    const queryStr = `
-      SELECT 
-        COUNT(CASE WHEN status IN ('uploaded', 'dry_run_completed', 'ready') THEN 1 END) as generated_today,
-        COUNT(CASE WHEN status = 'uploaded' THEN 1 END) as uploaded_today
-      FROM videos 
-      WHERE DATE(created_at) = DATE($1)
-    `;
-    const res = await db.query(queryStr, [todayStr]);
+    const queryStr = db.isPostgres()
+      ? `SELECT 
+           COUNT(CASE WHEN status IN ('uploaded', 'dry_run_completed', 'ready') THEN 1 END) as generated_today,
+           COUNT(CASE WHEN status = 'uploaded' THEN 1 END) as uploaded_today
+         FROM videos 
+         WHERE DATE(created_at) = CURRENT_DATE`
+      : `SELECT 
+           COUNT(CASE WHEN status IN ('uploaded', 'dry_run_completed', 'ready') THEN 1 END) as generated_today,
+           COUNT(CASE WHEN status = 'uploaded' THEN 1 END) as uploaded_today
+         FROM videos 
+         WHERE DATE(created_at) = DATE($1)`;
+    const res = await db.query(queryStr, db.isPostgres() ? [] : [todayStr]);
     const generated = parseInt(res.rows[0]?.generated_today || '0', 10);
     const uploaded = parseInt(res.rows[0]?.uploaded_today || '0', 10);
 
@@ -56,10 +60,13 @@ class PipelineRunner {
    * Check if another job is currently active to prevent race conditions
    */
   async isJobRunning() {
+    const timeClause = db.isPostgres()
+      ? "started_at > NOW() - INTERVAL '30 minutes'"
+      : "started_at > datetime('now', '-30 minutes')";
     const res = await db.query(
       `SELECT id, status, started_at FROM jobs 
        WHERE status = 'running' 
-       AND started_at > datetime('now', '-30 minutes')`
+       AND ${timeClause}`
     );
     return res.rows.length > 0;
   }

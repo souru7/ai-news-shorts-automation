@@ -38,11 +38,11 @@ app.use(cookieParser());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Login rate limiter: 10 attempts per 15 minutes
+// Login rate limiter: relaxed for admin ease of use
 const loginLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 15,
-  message: { error: 'Too many login attempts. Please try again after 15 minutes.' }
+  max: 100,
+  message: { error: 'Too many login attempts. Please try again in a moment.' }
 });
 
 // Render production health check
