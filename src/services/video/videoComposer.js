@@ -23,12 +23,20 @@ class VideoComposer {
     if (!fs.existsSync(this.tempDir)) fs.mkdirSync(this.tempDir, { recursive: true });
   }
 
+  getCanvas() {
+    if (!this.sharedCanvas) {
+      this.sharedCanvas = createCanvas(1080, 1920);
+    }
+    const ctx = this.sharedCanvas.getContext('2d');
+    ctx.clearRect(0, 0, 1080, 1920);
+    return { canvas: this.sharedCanvas, ctx };
+  }
+
   /**
    * Render complete high-definition 1080x1920 9:16 frame for a specific caption segment
    */
   renderCompleteFrame({ tool_name, topic, captionText, isHighlight, progressRatio, tempJobDir, index }) {
-    const canvas = createCanvas(1080, 1920);
-    const ctx = canvas.getContext('2d');
+    const { canvas, ctx } = this.getCanvas();
 
     // 1. Dark Cyber Navy Background Gradient
     const bgGrad = ctx.createLinearGradient(0, 0, 1080, 1920);
@@ -260,7 +268,10 @@ class VideoComposer {
       '-f', 'concat', '-safe', '0', '-i', concatPath,
       '-i', absAudioPath,
       '-c:v', 'libx264',
-      '-preset', 'veryfast',
+      '-preset', 'ultrafast',
+      '-tune', 'fastdecode',
+      '-threads', '1',
+      '-x264opts', 'rc-lookahead=10:sync-lookahead=0',
       '-crf', '22',
       '-pix_fmt', 'yuv420p',
       '-c:a', 'aac',
