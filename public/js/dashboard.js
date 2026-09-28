@@ -495,6 +495,7 @@ async function loadSettings() {
     if (settings.youtube_client_id) document.getElementById('setting-yt-client-id').value = settings.youtube_client_id;
     if (settings.youtube_client_secret) document.getElementById('setting-yt-client-secret').value = settings.youtube_client_secret;
     if (settings.youtube_refresh_token) document.getElementById('setting-yt-refresh-token').value = settings.youtube_refresh_token;
+    if (settings.cron_secret) document.getElementById('setting-cron-secret').value = settings.cron_secret;
   } catch (err) {
     console.error('Error loading settings:', err);
   }
@@ -503,6 +504,7 @@ async function loadSettings() {
 async function saveSettings(e) {
   e.preventDefault();
   const dryRunEl = document.getElementById('setting-dryrun');
+  const cronSecretEl = document.getElementById('setting-cron-secret');
   const payload = {
     daily_quota: document.getElementById('setting-quota').value,
     tts_voice: document.getElementById('setting-voice').value,
@@ -511,7 +513,8 @@ async function saveSettings(e) {
     dry_run: dryRunEl ? (dryRunEl.checked ? 'true' : 'false') : 'false',
     youtube_client_id: document.getElementById('setting-yt-client-id').value.trim(),
     youtube_client_secret: document.getElementById('setting-yt-client-secret').value.trim(),
-    youtube_refresh_token: document.getElementById('setting-yt-refresh-token').value.trim()
+    youtube_refresh_token: document.getElementById('setting-yt-refresh-token').value.trim(),
+    cron_secret: cronSecretEl ? cronSecretEl.value.trim() : ''
   };
 
   try {

@@ -33,7 +33,7 @@ function requireAuth(req, res, next) {
   next();
 }
 
-function requireCronSecret(req, res, next) {
+async function requireCronSecret(req, res, next) {
   const authHeader = req.headers.authorization || '';
   const token = authHeader.replace(/^Bearer\s+/i, '').trim();
   const headerSecret = req.headers['x-cron-secret'];
@@ -41,7 +41,16 @@ function requireCronSecret(req, res, next) {
 
   const providedSecret = token || headerSecret || querySecret;
 
-  if (!providedSecret || providedSecret !== env.CRON_SECRET) {
+  let expectedSecret = env.CRON_SECRET;
+  try {
+    const db = require('../database/db');
+    const row = await db.query('SELECT value FROM settings WHERE key = $1', ['cron_secret']);
+    if (row.rows.length > 0 && row.rows[0].value) {
+      expectedSecret = row.rows[0].value;
+    }
+  } catch (e) {}
+
+  if (!providedSecret || (providedSecret !== expectedSecret && providedSecret !== env.CRON_SECRET)) {
     logger.warn('Unauthorized cron request attempt blocked');
     return res.status(401).json({ error: 'Unauthorized: Invalid cron secret' });
   }
