@@ -32,6 +32,18 @@ const TAB_METADATA = {
   }
 };
 
+// Unified fetch wrapper that attaches cookies and Bearer token
+async function apiFetch(url, options = {}) {
+  const headers = Object.assign({}, options.headers || {});
+  const token = localStorage.getItem("auth_token");
+  if (token && !headers["Authorization"]) {
+    headers["Authorization"] = "Bearer " + token;
+  }
+  options.headers = headers;
+  options.credentials = "include";
+  return fetch(url, options);
+}
+
 document.addEventListener("DOMContentLoaded", () => {
   // Bind all sidebar tab navigation buttons directly via EventListeners
   document.querySelectorAll(".nav-item").forEach(item => {
@@ -157,7 +169,6 @@ function showToast(title, message, type = "info") {
 
   container.appendChild(toast);
 
-  // Auto remove after 5 seconds
   setTimeout(() => {
     if (toast.parentElement) {
       toast.style.opacity = "0";
@@ -172,7 +183,7 @@ function showToast(title, message, type = "info") {
 // ----------------------------------------------------
 async function checkActiveJob() {
   try {
-    const res = await fetch("/api/admin/active-job");
+    const res = await apiFetch("/api/admin/active-job");
     if (res.status === 401) return (window.location.href = "/login");
     if (!res.ok) return;
 
@@ -187,7 +198,6 @@ async function checkActiveJob() {
       const step = data.job.step || "processing";
       const stageMsg = data.job.stage_message || "Processing automated AI pipeline...";
 
-      // Update progress badges and bar
       const pctEl = document.getElementById("progress-percent-badge");
       const barEl = document.getElementById("progress-bar-fill");
       const stepEl = document.getElementById("progress-step-badge");
@@ -204,10 +214,8 @@ async function checkActiveJob() {
         timeEl.textContent = "Elapsed: " + elapsedSec + "s";
       }
 
-      // Update step checklist indicators
       updateStepChecklist(pct);
     } else {
-      // If we were previously active and now finished
       if (isJobActive) {
         isJobActive = false;
         const pctEl = document.getElementById("progress-percent-badge");
@@ -278,7 +286,7 @@ function updateStepChecklist(pct) {
 // ----------------------------------------------------
 async function loadStats() {
   try {
-    const res = await fetch("/api/admin/stats");
+    const res = await apiFetch("/api/admin/stats");
     if (res.status === 401) return (window.location.href = "/login");
     if (!res.ok) throw new Error("HTTP " + res.status);
     const data = await res.json();
@@ -320,7 +328,7 @@ async function loadStats() {
 // ----------------------------------------------------
 async function loadYouTubeStatus() {
   try {
-    const res = await fetch("/api/youtube/status");
+    const res = await apiFetch("/api/youtube/status");
     const data = await res.json();
     const channelEl = document.getElementById("stat-yt-channel");
     const subsEl = document.getElementById("stat-yt-subs");
@@ -368,7 +376,7 @@ async function loadYouTubeStatus() {
 async function testYouTubeConnection() {
   try {
     showToast("Testing Connection", "Validating OAuth token against target YouTube channel...", "info");
-    const res = await fetch("/api/youtube/test-connection");
+    const res = await apiFetch("/api/youtube/test-connection");
     const data = await res.json();
     if (data.isCorrect) {
       showToast("Channel Verified", "✅ Target matched: " + data.title + " (" + data.channelId + ")", "success");
@@ -388,7 +396,7 @@ async function disconnectYouTube() {
     return;
   }
   try {
-    const res = await fetch("/api/youtube/disconnect", { method: "POST" });
+    const res = await apiFetch("/api/youtube/disconnect", { method: "POST" });
     const data = await res.json();
     if (data.success) {
       showToast("Disconnected", "YouTube channel credentials removed.", "info");
@@ -409,14 +417,13 @@ async function loadVideos() {
   const allTable = document.getElementById("all-videos-table");
 
   try {
-    const res = await fetch("/api/admin/videos?limit=50");
+    const res = await apiFetch("/api/admin/videos?limit=50");
     if (res.status === 401) return (window.location.href = "/login");
     if (!res.ok) throw new Error("Server returned HTTP " + res.status);
 
     const data = await res.json();
     const videos = data.videos || [];
 
-    // 1. Dashboard recent table (top 5)
     if (recentTable) {
       if (videos.length === 0) {
         recentTable.innerHTML = '<tr><td colspan="6" style="text-align:center; padding:30px; color:var(--text-dim);">No shorts generated yet. Click "⚡ Generate & Publish Short Instantly" to create your first video!</td></tr>';
@@ -425,7 +432,6 @@ async function loadVideos() {
       }
     }
 
-    // 2. All videos table
     if (allTable) {
       if (videos.length === 0) {
         allTable.innerHTML = '<tr><td colspan="7" style="text-align:center; padding:30px; color:var(--text-dim);">No videos generated yet.</td></tr>';
@@ -512,12 +518,11 @@ function renderVideoRow(v, isFullView) {
 async function triggerInstantPublish() {
   if (!confirm("⚡ Start generating and automatically publish to YouTube Shorts immediately?")) return;
   
-  // 1. Immediately show live progress card in UI with initial state
   showLiveProgressUI("INITIALIZING", "Starting autonomous AI Short research & generation pipeline...");
   showToast("Short Generation Started", "Researching top AI tool, synthesizing neural voice & creating 9:16 short...", "info");
 
   try {
-    const res = await fetch("/api/admin/generate-now", {
+    const res = await apiFetch("/api/admin/generate-now", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ isDryRun: false })
@@ -532,12 +537,11 @@ async function triggerInstantPublish() {
 }
 
 async function triggerDryRun() {
-  // 1. Immediately show live progress card in UI
   showLiveProgressUI("INITIALIZING (DRY RUN)", "Starting preview generation (will not upload to YouTube)...");
   showToast("Test Short Started", "Rendering 9:16 vertical short preview without uploading...", "info");
 
   try {
-    const res = await fetch("/api/admin/generate-now", {
+    const res = await apiFetch("/api/admin/generate-now", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ isDryRun: true })
@@ -578,7 +582,7 @@ async function publishVideo(videoId) {
   if (!confirm("🚀 Publish this Short to your YouTube channel right now?")) return;
   try {
     showToast("Uploading Short", "Transmitting video to YouTube API...", "info");
-    const res = await fetch("/api/admin/publish/" + videoId, { method: "POST" });
+    const res = await apiFetch("/api/admin/publish/" + videoId, { method: "POST" });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || "Upload failed");
     showToast("Published!", "🎉 Video successfully published to YouTube Shorts!", "success");
@@ -594,7 +598,7 @@ async function publishVideo(videoId) {
 async function retryVideo(id) {
   try {
     showToast("Retrying Short", "Re-initiating video processing...", "info");
-    const res = await fetch("/api/admin/retry/" + id, { method: "POST" });
+    const res = await apiFetch("/api/admin/retry/" + id, { method: "POST" });
     const data = await res.json();
     showLiveProgressUI("RETRYING", "Rebuilding short from step...");
     checkActiveJob();
@@ -607,7 +611,7 @@ async function retryVideo(id) {
 async function deleteVideo(id) {
   if (!confirm("Are you sure you want to delete this video and its files?")) return;
   try {
-    await fetch("/api/admin/videos/" + id, { method: "DELETE" });
+    await apiFetch("/api/admin/videos/" + id, { method: "DELETE" });
     showToast("Deleted", "Video removed successfully.", "info");
     loadVideos();
     loadStats();
@@ -623,7 +627,7 @@ async function loadResearch() {
   const tbody = document.getElementById("research-table");
   if (!tbody) return;
   try {
-    const res = await fetch("/api/admin/research");
+    const res = await apiFetch("/api/admin/research");
     if (res.status === 401) return (window.location.href = "/login");
     if (!res.ok) throw new Error("HTTP " + res.status);
 
@@ -657,7 +661,7 @@ async function loadDiagnostics() {
   if (!grid) return;
 
   try {
-    const res = await fetch("/api/admin/diagnostics");
+    const res = await apiFetch("/api/admin/diagnostics");
     if (res.status === 401) return (window.location.href = "/login");
     if (!res.ok) throw new Error("HTTP " + res.status);
 
@@ -705,7 +709,7 @@ async function loadDiagnostics() {
 // ----------------------------------------------------
 async function loadSettings() {
   try {
-    const res = await fetch("/api/admin/settings");
+    const res = await apiFetch("/api/admin/settings");
     if (!res.ok) return;
     const settings = await res.json();
     if (settings.daily_quota) document.getElementById("setting-quota").value = settings.daily_quota;
@@ -744,7 +748,7 @@ async function saveSettings(e) {
   };
 
   try {
-    const res = await fetch("/api/admin/settings", {
+    const res = await apiFetch("/api/admin/settings", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload)
@@ -763,7 +767,7 @@ async function saveSettings(e) {
 // ----------------------------------------------------
 async function loadLogs() {
   try {
-    const res = await fetch("/api/admin/logs");
+    const res = await apiFetch("/api/admin/logs");
     if (!res.ok) return;
     const data = await res.json();
     const term = document.getElementById("terminal-logs");
@@ -801,7 +805,8 @@ function closeModal() {
 
 async function logout() {
   try {
-    await fetch("/api/auth/logout", { method: "POST" });
+    localStorage.removeItem("auth_token");
+    await apiFetch("/api/auth/logout", { method: "POST" });
     window.location.href = "/login";
   } catch (err) {
     window.location.href = "/login";
