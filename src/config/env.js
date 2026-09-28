@@ -40,6 +40,7 @@ const env = {
   YOUTUBE_REDIRECT_URI: process.env.YOUTUBE_REDIRECT_URI || `${defaultAppUrl.replace(/\/$/, '')}/auth/youtube/callback`,
   YOUTUBE_REFRESH_TOKEN: process.env.YOUTUBE_REFRESH_TOKEN || '',
   YOUTUBE_PRIVACY_STATUS: process.env.YOUTUBE_PRIVACY_STATUS || 'public',
+  YOUTUBE_TARGET_CHANNEL_ID: process.env.YOUTUBE_TARGET_CHANNEL_ID || 'UCje0Deygks4X5w1oCRB-lew',
   
   // Storage
   STORAGE_PROVIDER: process.env.STORAGE_PROVIDER || 'local',

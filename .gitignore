@@ -7,3 +7,4 @@ storage/audio/*.mp3
 storage/temp/*
 logs/*.log
 .DS_Store
+cookies.txt

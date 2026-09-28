@@ -311,10 +311,14 @@ class PipelineRunner {
       logger.error(`Pipeline failure for Job ${jobId}: ${err.message}`, { error: err.stack });
 
       // Record error on video and job
-      await db.updateJobProgress(jobId, 0, 'failed', `Failed: ${err.message}`);
+      const isBlockedWrongChannel = err.message && (err.message.includes('Upload blocked') || err.message.includes('Wrong YouTube channel'));
+      const videoStatus = isBlockedWrongChannel ? 'blocked_wrong_channel' : 'failed';
+      const stageText = isBlockedWrongChannel ? 'Blocked: Authenticated channel does not match target' : `Failed: ${err.message}`;
+
+      await db.updateJobProgress(jobId, 0, videoStatus, stageText);
       await db.query(
-        `UPDATE videos SET status = 'failed', error_message = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2`,
-        [err.message, videoId]
+        `UPDATE videos SET status = $1, error_message = $2, updated_at = CURRENT_TIMESTAMP WHERE id = $3`,
+        [videoStatus, err.message, videoId]
       );
 
       await db.query(

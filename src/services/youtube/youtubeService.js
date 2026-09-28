@@ -12,6 +12,19 @@ class YouTubeService {
   }
 
   /**
+   * Get the strictly required target YouTube channel ID
+   */
+  async getTargetChannelId() {
+    try {
+      const row = await db.query('SELECT value FROM settings WHERE key = $1', ['youtube_target_channel_id']);
+      if (row.rows.length > 0 && row.rows[0].value) {
+        return row.rows[0].value.trim();
+      }
+    } catch (e) {}
+    return (env.YOUTUBE_TARGET_CHANNEL_ID || 'UCje0Deygks4X5w1oCRB-lew').trim();
+  }
+
+  /**
    * Get client credentials from database settings or environment variables
    */
   async getClientCredentials() {
@@ -27,13 +40,13 @@ class YouTubeService {
 
     try {
       const idSetting = await db.query('SELECT value FROM settings WHERE key = $1', ['youtube_client_id']);
-      if (idSetting.rows.length > 0 && idSetting.rows[0].value) clientId = idSetting.rows[0].value;
+      if (idSetting.rows.length > 0 && idSetting.rows[0].value) clientId = idSetting.rows[0].value.trim();
 
       const secretSetting = await db.query('SELECT value FROM settings WHERE key = $1', ['youtube_client_secret']);
-      if (secretSetting.rows.length > 0 && secretSetting.rows[0].value) clientSecret = secretSetting.rows[0].value;
+      if (secretSetting.rows.length > 0 && secretSetting.rows[0].value) clientSecret = secretSetting.rows[0].value.trim();
 
       const uriSetting = await db.query('SELECT value FROM settings WHERE key = $1', ['youtube_redirect_uri']);
-      if (uriSetting.rows.length > 0 && uriSetting.rows[0].value) redirectUri = uriSetting.rows[0].value;
+      if (uriSetting.rows.length > 0 && uriSetting.rows[0].value) redirectUri = uriSetting.rows[0].value.trim();
     } catch (e) {}
 
     return { clientId, clientSecret, redirectUri };
@@ -45,7 +58,7 @@ class YouTubeService {
   async createOAuth2Client() {
     const creds = await this.getClientCredentials();
     if (!creds.clientId || !creds.clientSecret) {
-      throw new Error('YOUTUBE_CLIENT_ID and YOUTUBE_CLIENT_SECRET are not configured. You can configure them in the Dashboard Settings tab.');
+      throw new Error('YOUTUBE_CLIENT_ID and YOUTUBE_CLIENT_SECRET are not configured. You can configure them in Dashboard Settings.');
     }
     return new google.auth.OAuth2(
       creds.clientId,
@@ -55,19 +68,20 @@ class YouTubeService {
   }
 
   /**
-   * Get refresh token from env or database settings
+   * Get refresh token from database settings or env
    */
   async getRefreshToken() {
-    if (env.YOUTUBE_REFRESH_TOKEN) {
-      return env.YOUTUBE_REFRESH_TOKEN;
-    }
     try {
       const res = await db.query('SELECT value FROM settings WHERE key = $1', ['youtube_refresh_token']);
       if (res.rows.length > 0 && res.rows[0].value) {
-        return res.rows[0].value;
+        return res.rows[0].value.trim();
       }
     } catch (err) {
       logger.warn(`Could not read youtube_refresh_token from database: ${err.message}`);
+    }
+
+    if (env.YOUTUBE_REFRESH_TOKEN) {
+      return env.YOUTUBE_REFRESH_TOKEN.trim();
     }
     return null;
   }
@@ -77,26 +91,39 @@ class YouTubeService {
    */
   async saveRefreshToken(refreshToken) {
     try {
-      const exists = await db.query('SELECT id FROM settings WHERE key = $1', ['youtube_refresh_token']);
-      if (exists.rows.length > 0) {
-        await db.query(
-          'UPDATE settings SET value = $1, updated_at = CURRENT_TIMESTAMP WHERE key = $2',
-          [refreshToken, 'youtube_refresh_token']
-        );
-      } else {
-        await db.query(
-          'INSERT INTO settings (id, key, value) VALUES ($1, $2, $3)',
-          ['setting-youtube-refresh-token', 'youtube_refresh_token', refreshToken]
-        );
-      }
-      logger.info('Saved YouTube OAuth refresh token to settings.');
+      await db.query(
+        `INSERT INTO settings (id, key, value, updated_at)
+         VALUES ('setting-youtube-refresh-token', 'youtube_refresh_token', $1, CURRENT_TIMESTAMP)
+         ON CONFLICT(key) DO UPDATE SET value = $1, updated_at = CURRENT_TIMESTAMP`,
+        [refreshToken]
+      ).catch(async () => {
+        await db.query("UPDATE settings SET value = $1, updated_at = CURRENT_TIMESTAMP WHERE key = 'youtube_refresh_token'", [refreshToken]);
+      });
+      logger.info('Persisted authorized YouTube refresh token to database.');
     } catch (err) {
       logger.error(`Failed to persist refresh token to database: ${err.message}`);
+      throw err;
     }
   }
 
   /**
-   * Generate OAuth URL for channel authorization
+   * Disconnect YouTube channel and wipe stored tokens
+   */
+  async disconnectYouTube() {
+    try {
+      await db.query(
+        "DELETE FROM settings WHERE key IN ('youtube_refresh_token', 'youtube_channel_id', 'youtube_channel_title')"
+      );
+      logger.info('YouTube connection disconnected. Stored tokens cleared.');
+      return { success: true, message: 'YouTube channel disconnected successfully.' };
+    } catch (err) {
+      logger.error(`Failed to disconnect YouTube channel: ${err.message}`);
+      throw err;
+    }
+  }
+
+  /**
+   * Generate Google OAuth consent URL forcing account selection
    */
   async generateAuthUrl() {
     const oauth2Client = await this.createOAuth2Client();
@@ -108,13 +135,14 @@ class YouTubeService {
 
     return oauth2Client.generateAuthUrl({
       access_type: 'offline',
-      prompt: 'consent',
+      prompt: 'select_account consent',
+      include_granted_scopes: true,
       scope: scopes
     });
   }
 
   /**
-   * Handle authorization code exchange in OAuth callback
+   * Handle authorization code exchange in OAuth callback with HARD channel verification
    */
   async handleAuthCallback(code) {
     const oauth2Client = await this.createOAuth2Client();
@@ -122,13 +150,63 @@ class YouTubeService {
     const { tokens } = await oauth2Client.getToken(code);
     oauth2Client.setCredentials(tokens);
 
+    // Call channels.list(mine=true) IMMEDIATELY before saving tokens!
+    const youtube = google.youtube({ version: 'v3', auth: oauth2Client });
+    const res = await youtube.channels.list({
+      part: ['snippet,statistics'],
+      mine: true
+    });
+
+    const channel = res.data.items?.[0];
+    if (!channel) {
+      throw new Error('No YouTube channel found for the authenticated Google account.');
+    }
+
+    const authenticatedChannelId = channel.id;
+    const targetChannelId = await this.getTargetChannelId();
+
+    logger.info(`OAuth account authenticated. Detected channel: "${channel.snippet.title}" (${authenticatedChannelId}). Required target: ${targetChannelId}`);
+
+    // HARD VERIFICATION: Reject if authenticated channel does not match target
+    if (authenticatedChannelId !== targetChannelId) {
+      const errorMsg = `Wrong YouTube channel!\n\nThe Google account selected is connected to:\nChannel: "${channel.snippet.title}"\nChannel ID: ${authenticatedChannelId}\n\nThis application strictly requires target channel:\nTarget Channel ID: ${targetChannelId}\n\nPlease connect the correct Google/YouTube account (or choose the corresponding Brand Account).`;
+      logger.error(errorMsg);
+      throw new Error(errorMsg);
+    }
+
+    // Save refresh token only after channel ID verification succeeds
     if (tokens.refresh_token) {
       await this.saveRefreshToken(tokens.refresh_token);
     } else {
-      logger.warn('Google did not return a new refresh token (consent may have been previously granted).');
+      logger.warn('Google did not return a new refresh token (consent previously granted). Preserving existing token.');
     }
 
-    return tokens;
+    // Save channel metadata in database settings
+    await db.query(`
+      INSERT INTO settings (id, key, value, updated_at)
+      VALUES ('setting-youtube-channel-id', 'youtube_channel_id', $1, CURRENT_TIMESTAMP)
+      ON CONFLICT(key) DO UPDATE SET value = $1, updated_at = CURRENT_TIMESTAMP
+    `, [authenticatedChannelId]).catch(async () => {
+      await db.query("UPDATE settings SET value = $1 WHERE key = 'youtube_channel_id'", [authenticatedChannelId]);
+    });
+
+    await db.query(`
+      INSERT INTO settings (id, key, value, updated_at)
+      VALUES ('setting-youtube-channel-title', 'youtube_channel_title', $1, CURRENT_TIMESTAMP)
+      ON CONFLICT(key) DO UPDATE SET value = $1, updated_at = CURRENT_TIMESTAMP
+    `, [channel.snippet.title]).catch(async () => {
+      await db.query("UPDATE settings SET value = $1 WHERE key = 'youtube_channel_title'", [channel.snippet.title]);
+    });
+
+    logger.info(`Successfully verified and linked target YouTube channel: "${channel.snippet.title}" (${authenticatedChannelId})`);
+    return {
+      tokens,
+      channel: {
+        id: channel.id,
+        title: channel.snippet.title,
+        thumbnail: channel.snippet.thumbnails?.default?.url
+      }
+    };
   }
 
   /**
@@ -136,13 +214,9 @@ class YouTubeService {
    */
   async getAuthorizedYouTubeClient() {
     const oauth2Client = await this.createOAuth2Client();
-    if (!oauth2Client) {
-      throw new Error('YouTube OAuth credentials not configured in environment.');
-    }
-
     const refreshToken = await this.getRefreshToken();
     if (!refreshToken) {
-      throw new Error('YouTube channel is not yet connected. Please authorize via the Admin Dashboard.');
+      throw new Error('YouTube channel is not connected. Please authorize via the Admin Dashboard.');
     }
 
     oauth2Client.setCredentials({ refresh_token: refreshToken });
@@ -150,10 +224,23 @@ class YouTubeService {
   }
 
   /**
-   * Get authorized YouTube channel info for dashboard
+   * Get authorized YouTube channel info and verify match against target channel
    */
   async getChannelInfo() {
+    const targetChannelId = await this.getTargetChannelId();
     try {
+      const refreshToken = await this.getRefreshToken();
+      if (!refreshToken) {
+        return {
+          isConnected: false,
+          isTargetChannel: false,
+          targetChannelId,
+          channelId: null,
+          title: 'Not Connected',
+          error: 'No active OAuth connection. Please connect your YouTube channel.'
+        };
+      }
+
       const youtube = await this.getAuthorizedYouTubeClient();
       const res = await youtube.channels.list({
         part: ['snippet,statistics'],
@@ -162,28 +249,81 @@ class YouTubeService {
 
       const channel = res.data.items?.[0];
       if (!channel) {
-        return { isConnected: false, error: 'No channel found for authenticated account' };
+        return {
+          isConnected: false,
+          isTargetChannel: false,
+          targetChannelId,
+          channelId: null,
+          title: 'Unknown',
+          error: 'No channel found for authenticated account'
+        };
       }
 
+      const isTarget = channel.id === targetChannelId;
+
       return {
-        isConnected: true,
+        isConnected: isTarget,
+        isWrongChannel: !isTarget,
         channelId: channel.id,
+        targetChannelId,
         title: channel.snippet.title,
         customUrl: channel.snippet.customUrl,
         thumbnail: channel.snippet.thumbnails?.default?.url,
         subscriberCount: channel.statistics?.subscriberCount || '0',
-        videoCount: channel.statistics?.videoCount || '0'
+        videoCount: channel.statistics?.videoCount || '0',
+        error: !isTarget 
+          ? `Connected channel (${channel.snippet.title} - ${channel.id}) does not match target (${targetChannelId})` 
+          : null
       };
     } catch (err) {
       return {
         isConnected: false,
+        isTargetChannel: false,
+        targetChannelId,
+        channelId: null,
         error: err.message
       };
     }
   }
 
   /**
-   * Upload video to YouTube Shorts
+   * Explicit connection test for admin button
+   */
+  async testConnection() {
+    const targetChannelId = await this.getTargetChannelId();
+    const info = await this.getChannelInfo();
+
+    if (!info.isConnected) {
+      if (info.isWrongChannel) {
+        return {
+          isCorrect: false,
+          channelId: info.channelId,
+          targetChannelId,
+          title: info.title,
+          message: `✗ Wrong YouTube channel! Authenticated channel "${info.title}" (${info.channelId}) does not match required target (${targetChannelId}). Uploads are blocked.`
+        };
+      }
+      return {
+        isCorrect: false,
+        channelId: null,
+        targetChannelId,
+        message: `✗ YouTube channel is not connected: ${info.error || 'Missing OAuth credentials'}`
+      };
+    }
+
+    return {
+      isCorrect: true,
+      channelId: info.channelId,
+      targetChannelId,
+      title: info.title,
+      subscriberCount: info.subscriberCount,
+      videoCount: info.videoCount,
+      message: `✓ YouTube connection verified! Authenticated channel "${info.title}" matches required target (${targetChannelId}). Ready for uploads.`
+    };
+  }
+
+  /**
+   * Upload video to YouTube Shorts with HARD pre-upload channel verification
    * @param {object} params - { filePath, title, description, tags, privacyStatus }
    * @returns {Promise<{videoId: string, youtubeUrl: string}>}
    */
@@ -192,7 +332,17 @@ class YouTubeService {
       throw new Error(`Cannot upload video. File not found: ${filePath}`);
     }
 
-    logger.info(`Starting YouTube Shorts upload: "${title}"...`);
+    // 1. HARD PRE-UPLOAD SAFETY CHECK
+    const targetChannelId = await this.getTargetChannelId();
+    const channelInfo = await this.getChannelInfo();
+
+    if (!channelInfo.isConnected || channelInfo.channelId !== targetChannelId) {
+      const errDetail = `Upload blocked! Authenticated channel (${channelInfo.channelId || 'none'}) does not match required target channel (${targetChannelId}). Upload aborted for safety.`;
+      logger.error(errDetail);
+      throw new Error(errDetail);
+    }
+
+    logger.info(`Starting verified YouTube Shorts upload to "${channelInfo.title}" (${targetChannelId}): "${title}"...`);
     const youtube = await this.getAuthorizedYouTubeClient();
 
     // Ensure #Shorts is present in title for YouTube Shorts indexing

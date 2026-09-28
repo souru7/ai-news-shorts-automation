@@ -178,7 +178,7 @@ async function loadStats() {
 }
 
 // ----------------------------------------------------
-// YouTube Channel Connection Status
+// YouTube Channel Connection Status & Target Channel Management
 // ----------------------------------------------------
 async function loadYouTubeStatus() {
   try {
@@ -187,19 +187,34 @@ async function loadYouTubeStatus() {
     const channelEl = document.getElementById('stat-yt-channel');
     const subsEl = document.getElementById('stat-yt-subs');
     const btnYt = document.getElementById('btn-yt-connect');
+    const btnYtText = document.getElementById('btn-yt-connect-text');
+    const btnDisconnect = document.getElementById('btn-yt-disconnect');
+    const badgeEl = document.getElementById('stat-yt-badge');
 
     if (data.isConnected) {
-      channelEl.textContent = data.title || 'Connected';
+      channelEl.textContent = `${data.title || 'Target Channel'} (Verified)`;
       channelEl.style.color = '#34d399';
-      subsEl.textContent = `${data.subscriberCount || '0'} Subscribers • ${data.videoCount || '0'} Videos`;
-      btnYt.textContent = '✓ YouTube Connected';
-      btnYt.style.background = '#059669';
+      subsEl.innerHTML = `<span style="color:#34d399; font-weight:600;">✓ Matched: ${data.targetChannelId || 'UCje0Deygks4X5w1oCRB-lew'}</span> • ${data.subscriberCount || '0'} Subs`;
+      if (btnYtText) btnYtText.textContent = 'Switch Account';
+      if (btnYt) btnYt.style.background = '#0284c7';
+      if (btnDisconnect) btnDisconnect.style.display = 'inline-block';
+      if (badgeEl) badgeEl.textContent = '✅';
+    } else if (data.isWrongChannel) {
+      channelEl.textContent = `Wrong Channel: ${data.title || data.channelId}`;
+      channelEl.style.color = '#fb7185';
+      subsEl.innerHTML = `<span style="color:#fb7185; font-weight:600;">Requires: ${data.targetChannelId || 'UCje0Deygks4X5w1oCRB-lew'}</span>`;
+      if (btnYtText) btnYtText.textContent = 'Connect Correct Channel';
+      if (btnYt) btnYt.style.background = '#ef4444';
+      if (btnDisconnect) btnDisconnect.style.display = 'inline-block';
+      if (badgeEl) badgeEl.textContent = '⚠️';
     } else {
       channelEl.textContent = 'Not Connected';
       channelEl.style.color = '#fb7185';
-      subsEl.textContent = data.error ? `${data.error.slice(0, 45)}...` : 'Click "Connect YouTube" to authorize';
-      btnYt.textContent = 'Connect YouTube';
-      btnYt.style.background = '#cc0000';
+      subsEl.innerHTML = `Target: <code style="color:#38bdf8;">${data.targetChannelId || 'UCje0Deygks4X5w1oCRB-lew'}</code>`;
+      if (btnYtText) btnYtText.textContent = 'Connect YouTube Channel';
+      if (btnYt) btnYt.style.background = '#cc0000';
+      if (btnDisconnect) btnDisconnect.style.display = 'none';
+      if (badgeEl) badgeEl.textContent = '🔗';
     }
   } catch (err) {
     console.error('YouTube status check error:', err);
@@ -208,6 +223,39 @@ async function loadYouTubeStatus() {
       channelEl.textContent = 'Unreachable';
       channelEl.style.color = '#fb7185';
     }
+  }
+}
+
+async function testYouTubeConnection() {
+  try {
+    const res = await fetch('/api/youtube/test-connection');
+    const data = await res.json();
+    if (data.isCorrect) {
+      alert(`✅ YouTube Channel Verified!\n\nTarget Channel: ${data.targetChannelId}\nConnected Channel: ${data.title} (${data.channelId})\nSubscribers: ${data.subscriberCount}\nVideos: ${data.videoCount}\n\nStatus: Ready for autonomous YouTube Shorts publishing!`);
+    } else {
+      alert(`⚠️ YouTube Connection Test Result:\n\n${data.message || data.error || 'Connection failed'}\n\nPlease click "Connect YouTube Channel" and authorize with Google account souroabh@gmail.com selecting target channel UCje0Deygks4X5w1oCRB-lew.`);
+    }
+    loadYouTubeStatus();
+  } catch (err) {
+    alert(`Failed to test connection: ${err.message}`);
+  }
+}
+
+async function disconnectYouTube() {
+  if (!confirm('Are you sure you want to disconnect YouTube? Stored OAuth tokens will be deleted and automated uploads will pause until reconnected.')) {
+    return;
+  }
+  try {
+    const res = await fetch('/api/youtube/disconnect', { method: 'POST' });
+    const data = await res.json();
+    if (data.success) {
+      alert('YouTube channel successfully disconnected.');
+    } else {
+      alert('Failed: ' + (data.error || 'Unknown error'));
+    }
+    await refreshData();
+  } catch (err) {
+    alert('Failed to disconnect: ' + err.message);
   }
 }
 
