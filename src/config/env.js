@@ -23,9 +23,9 @@ const env = {
   DAILY_QUOTA: parseInt(process.env.DAILY_QUOTA || '2', 10),
   
   // AI Provider (OpenAI / Compatible)
-  OPENAI_API_KEY: process.env.OPENAI_API_KEY || '',
-  OPENAI_BASE_URL: process.env.OPENAI_BASE_URL || 'https://api.openai.com/v1',
-  OPENAI_MODEL: process.env.OPENAI_MODEL || 'gpt-4o-mini',
+  OPENAI_API_KEY: process.env.OPENAI_API_KEY || process.env.GROQ_API_KEY || '',
+  OPENAI_BASE_URL: process.env.OPENAI_BASE_URL || 'https://api.groq.com/openai/v1',
+  OPENAI_MODEL: process.env.OPENAI_MODEL || 'openai/gpt-oss-120b',
   
   // Text-To-Speech
   TTS_PROVIDER: process.env.TTS_PROVIDER || (process.env.OPENAI_API_KEY ? 'openai' : 'edge'),
