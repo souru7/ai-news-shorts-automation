@@ -282,7 +282,7 @@ class PipelineRunner {
         title: videoRecord.title,
         description: videoRecord.description,
         tags: parsedTags,
-        privacyStatus: env.YOUTUBE_PRIVACY_STATUS
+        privacyStatus: (await db.query("SELECT value FROM settings WHERE key = 'youtube_privacy'")).rows[0]?.value || env.YOUTUBE_PRIVACY_STATUS || "public"
       });
 
       // 14. Mark as Uploaded
