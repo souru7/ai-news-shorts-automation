@@ -35,7 +35,7 @@ function requireCronSecret(req, res, next) {
   const authHeader = req.headers.authorization || '';
   const token = authHeader.replace(/^Bearer\s+/i, '').trim();
   const headerSecret = req.headers['x-cron-secret'];
-  const querySecret = req.query.secret;
+  const querySecret = req.query.secret || req.query.key;
 
   const providedSecret = token || headerSecret || querySecret;
 
