@@ -2,7 +2,7 @@ services:
   - type: web
     name: ai-news-shorts-automation
     env: node
-    plan: starter
+    plan: free
     buildCommand: npm install
     startCommand: npm start
     healthCheckPath: /health
