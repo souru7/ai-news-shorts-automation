@@ -45,15 +45,32 @@ const loginLimiter = rateLimit({
   message: { error: 'Too many login attempts. Please try again in a moment.' }
 });
 
-// Render production health check
-app.get('/health', (req, res) => {
-  res.status(200).json({
-    status: 'healthy',
-    uptime: Math.round(process.uptime()),
-    timestamp: new Date().toISOString(),
-    env: env.NODE_ENV,
-    storage: env.STORAGE_PROVIDER
-  });
+// Health check endpoint verifying application, database connection, and configuration
+app.get('/health', async (req, res) => {
+  try {
+    await db.query('SELECT 1');
+    res.status(200).json({
+      status: 'ok',
+      database: 'connected',
+      uptime: Math.round(process.uptime()),
+      timestamp: new Date().toISOString(),
+      env: env.NODE_ENV,
+      storage: env.STORAGE_PROVIDER,
+      configured: {
+        youtubeOAuth: !!(env.YOUTUBE_CLIENT_ID && env.YOUTUBE_CLIENT_SECRET),
+        aiApiKey: !!env.OPENAI_API_KEY,
+        cronSecret: !!env.CRON_SECRET
+      }
+    });
+  } catch (err) {
+    res.status(503).json({
+      status: 'error',
+      database: 'disconnected',
+      error: err.message,
+      uptime: Math.round(process.uptime()),
+      timestamp: new Date().toISOString()
+    });
+  }
 });
 
 // Serve generated media files

@@ -12,19 +12,21 @@ function requireAuth(req, res, next) {
     }
   }
 
+  const isApiRequest = req.path.startsWith('/api') || req.originalUrl.startsWith('/api');
+
   if (!token) {
-    if (req.accepts('html')) {
-      return res.redirect('/login');
+    if (isApiRequest || !req.accepts('html')) {
+      return res.status(401).json({ error: 'Unauthorized: Authentication required' });
     }
-    return res.status(401).json({ error: 'Unauthorized: Authentication required' });
+    return res.redirect('/login');
   }
 
   const payload = authService.verifyToken(token);
   if (!payload) {
-    if (req.accepts('html')) {
-      return res.redirect('/login');
+    if (isApiRequest || !req.accepts('html')) {
+      return res.status(401).json({ error: 'Unauthorized: Invalid or expired session' });
     }
-    return res.status(401).json({ error: 'Unauthorized: Invalid or expired session' });
+    return res.redirect('/login');
   }
 
   req.user = payload;

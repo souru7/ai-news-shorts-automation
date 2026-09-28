@@ -159,6 +159,22 @@ async function initDatabase() {
   await query(createResearchTable);
   await query(createLogsTable);
 
+  // Safe schema migrations for real-time progress & state machine
+  try {
+    await query('ALTER TABLE jobs ADD COLUMN progress INTEGER DEFAULT 0');
+  } catch (e) {}
+  try {
+    await query("ALTER TABLE jobs ADD COLUMN step VARCHAR(100) DEFAULT 'pending'");
+  } catch (e) {}
+  try {
+    await query("ALTER TABLE jobs ADD COLUMN stage_message TEXT DEFAULT ''");
+  } catch (e) {}
+
+  // Reset any abandoned in-flight jobs on container restart
+  try {
+    await query("UPDATE jobs SET status = 'interrupted', stage_message = 'Interrupted by server restart' WHERE status = 'running'");
+  } catch (e) {}
+
   // Ensure admin user exists and synchronize password to env.ADMIN_PASSWORD or Admin@Secure2026!
   const targetAdminUser = env.ADMIN_USERNAME || 'admin';
   const targetPassword = env.ADMIN_PASSWORD || 'Admin@Secure2026!';
@@ -201,8 +217,20 @@ async function initDatabase() {
   logger.info('Database schema and initial settings ready.');
 }
 
+async function updateJobProgress(jobId, progress, step, stageMessage) {
+  try {
+    await query(
+      'UPDATE jobs SET progress = $1, step = $2, stage_message = $3 WHERE id = $4',
+      [progress, step, stageMessage, jobId]
+    );
+  } catch (err) {
+    logger.warn(`Could not update job progress: ${err.message}`);
+  }
+}
+
 module.exports = {
   query,
   initDatabase,
+  updateJobProgress,
   isPostgres: () => isPostgres
 };

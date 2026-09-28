@@ -2,6 +2,14 @@ const fs = require('fs');
 const { execSync } = require('child_process');
 const logger = require('../../utils/logger');
 
+let ffprobeBin = 'ffprobe';
+try {
+  const ffprobeStatic = require('ffprobe-static');
+  if (ffprobeStatic && ffprobeStatic.path && fs.existsSync(ffprobeStatic.path)) {
+    ffprobeBin = ffprobeStatic.path;
+  }
+} catch (e) {}
+
 class VideoValidator {
   /**
    * Validate generated video meets all YouTube Shorts requirements
@@ -20,7 +28,7 @@ class VideoValidator {
 
     try {
       const probeOutput = execSync(
-        `ffprobe -v quiet -print_format json -show_format -show_streams "${filePath}"`,
+        `"${ffprobeBin}" -v quiet -print_format json -show_format -show_streams "${filePath}"`,
         { encoding: 'utf-8' }
       );
       const info = JSON.parse(probeOutput);

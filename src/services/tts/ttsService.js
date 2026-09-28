@@ -20,8 +20,14 @@ class TtsService {
    */
   getAudioDuration(filePath) {
     try {
+      let ffprobeBinary = 'ffprobe';
+      try {
+        const ffprobeStatic = require('ffprobe-static');
+        if (ffprobeStatic && ffprobeStatic.path) ffprobeBinary = ffprobeStatic.path;
+      } catch (e) {}
+
       const output = execSync(
-        `ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "${filePath}"`,
+        `"${ffprobeBinary}" -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "${filePath}"`,
         { encoding: 'utf-8' }
       ).trim();
       const dur = parseFloat(output);

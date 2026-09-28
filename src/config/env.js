@@ -1,9 +1,11 @@
 require('dotenv').config();
 
+const defaultAppUrl = process.env.RENDER_EXTERNAL_URL || process.env.APP_URL || 'https://ai-news-shorts-automation.onrender.com';
+
 const env = {
   NODE_ENV: process.env.NODE_ENV || 'development',
   PORT: parseInt(process.env.PORT || '4000', 10),
-  APP_URL: (process.env.APP_URL || 'http://localhost:4000').replace(/\/$/, ''),
+  APP_URL: defaultAppUrl.replace(/\/$/, ''),
   
   // Database
   DATABASE_URL: process.env.DATABASE_URL || '',
@@ -35,7 +37,7 @@ const env = {
   // YouTube API
   YOUTUBE_CLIENT_ID: process.env.YOUTUBE_CLIENT_ID || '',
   YOUTUBE_CLIENT_SECRET: process.env.YOUTUBE_CLIENT_SECRET || '',
-  YOUTUBE_REDIRECT_URI: process.env.YOUTUBE_REDIRECT_URI || `${(process.env.APP_URL || 'http://localhost:3000').replace(/\/$/, '')}/auth/youtube/callback`,
+  YOUTUBE_REDIRECT_URI: process.env.YOUTUBE_REDIRECT_URI || `${defaultAppUrl.replace(/\/$/, '')}/auth/youtube/callback`,
   YOUTUBE_REFRESH_TOKEN: process.env.YOUTUBE_REFRESH_TOKEN || '',
   YOUTUBE_PRIVACY_STATUS: process.env.YOUTUBE_PRIVACY_STATUS || 'public',
   
@@ -50,5 +52,22 @@ const env = {
   // Research
   RESEARCH_API_KEY: process.env.RESEARCH_API_KEY || ''
 };
+
+// Validate environment variables without leaking secrets
+function validateEnv() {
+  const missing = [];
+  if (!process.env.DATABASE_URL) missing.push('DATABASE_URL');
+  if (!process.env.CRON_SECRET) missing.push('CRON_SECRET');
+  if (!process.env.YOUTUBE_CLIENT_ID) missing.push('YOUTUBE_CLIENT_ID');
+  if (!process.env.YOUTUBE_CLIENT_SECRET) missing.push('YOUTUBE_CLIENT_SECRET');
+  if (!process.env.OPENAI_API_KEY) missing.push('OPENAI_API_KEY (Using built-in AI script template generator)');
+
+  if (missing.length > 0) {
+    console.log('[CONFIG] Environment inspection:');
+    missing.forEach(m => console.log(`  ⚠ Missing environment variable: ${m}`));
+  }
+}
+
+validateEnv();
 
 module.exports = env;

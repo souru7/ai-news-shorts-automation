@@ -6,6 +6,14 @@ const { createCanvas } = require('@napi-rs/canvas');
 const logger = require('../../utils/logger');
 const videoValidator = require('./videoValidator');
 
+let ffmpegBin = 'ffmpeg';
+try {
+  const ffmpegStatic = require('ffmpeg-static');
+  if (ffmpegStatic && fs.existsSync(ffmpegStatic)) {
+    ffmpegBin = ffmpegStatic;
+  }
+} catch (e) {}
+
 class VideoComposer {
   constructor() {
     this.outputDir = path.join(__dirname, '../../../storage/videos');
@@ -187,7 +195,7 @@ class VideoComposer {
   /**
    * Compose the final YouTube Shorts video
    */
-  async composeVideo({ tool_name, topic, script, audioPath, audioDuration, timedChunks }) {
+  async composeVideo({ tool_name, topic, script, audioPath, audioDuration, timedChunks, onProgress }) {
     // Strictly cap video duration to <= 29.5s
     const finalDuration = Math.min(Math.max(audioDuration, 5.0), 29.5);
     logger.info(`Composing YouTube Shorts video (${finalDuration.toFixed(1)}s, 1080x1920)...`);
@@ -263,18 +271,32 @@ class VideoComposer {
     );
 
     await new Promise((resolve, reject) => {
-      logger.info('Starting FFmpeg video composition process...');
-      const proc = spawn('ffmpeg', ffmpegArgs);
+      logger.info(`Starting FFmpeg video composition process using: ${ffmpegBin}...`);
+      const proc = spawn(ffmpegBin, ffmpegArgs);
 
       let stderr = '';
-      proc.stderr.on('data', (d) => { stderr += d.toString(); });
+      proc.stderr.on('data', (d) => {
+        const text = d.toString();
+        stderr += text;
+
+        const timeMatch = text.match(/time=(\d{2}):(\d{2}):(\d{2}\.\d+)/);
+        if (timeMatch && onProgress) {
+          const hours = parseFloat(timeMatch[1]);
+          const minutes = parseFloat(timeMatch[2]);
+          const seconds = parseFloat(timeMatch[3]);
+          const currentSec = (hours * 3600) + (minutes * 60) + seconds;
+          const percent = Math.min(Math.round((currentSec / finalDuration) * 100), 99);
+          onProgress(percent, currentSec, finalDuration);
+        }
+      });
 
       proc.on('close', (code) => {
         if (code === 0) {
+          if (onProgress) onProgress(100, finalDuration, finalDuration);
           resolve();
         } else {
           logger.error(`FFmpeg composition exited with code ${code}. Stderr: ${stderr.slice(-600)}`);
-          reject(new Error(`FFmpeg failed with exit code ${code}`));
+          reject(new Error(`FFmpeg failed with exit code ${code}: ${stderr.slice(-300)}`));
         }
       });
       proc.on('error', reject);

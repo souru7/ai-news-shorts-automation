@@ -13,44 +13,66 @@ const storageService = require('../storage/storageService');
 
 class PipelineRunner {
   /**
-   * Get today's start and end timestamps in UTC
+   * Get today's date string in specific timezone (default Asia/Kolkata)
    */
-  getTodayDateString() {
-    const d = new Date();
-    return d.toISOString().split('T')[0];
+  getTodayDateString(timezone = 'Asia/Kolkata') {
+    try {
+      return new Intl.DateTimeFormat('en-CA', { timeZone: timezone }).format(new Date());
+    } catch (e) {
+      return new Date().toISOString().split('T')[0];
+    }
   }
 
   /**
-   * Check how many Shorts have been generated/uploaded today
+   * Check how many Shorts have been generated/uploaded today using configured timezone
    */
   async getTodayStats() {
-    const todayStr = this.getTodayDateString();
+    let timezone = 'Asia/Kolkata';
+    try {
+      const tzRow = await db.query('SELECT value FROM settings WHERE key = $1', ['timezone']);
+      if (tzRow.rows.length > 0 && tzRow.rows[0].value) timezone = tzRow.rows[0].value;
+    } catch (e) {}
+
+    const todayStr = this.getTodayDateString(timezone);
     const queryStr = db.isPostgres()
       ? `SELECT 
            COUNT(CASE WHEN status IN ('uploaded', 'dry_run_completed', 'ready') THEN 1 END) as generated_today,
-           COUNT(CASE WHEN status = 'uploaded' THEN 1 END) as uploaded_today
+           COUNT(CASE WHEN status = 'uploaded' THEN 1 END) as uploaded_today,
+           COUNT(CASE WHEN status = 'failed' THEN 1 END) as failed_today,
+           COUNT(CASE WHEN status IN ('pending', 'running', 'video_generating', 'researching', 'script_generated', 'voice_generated', 'uploading') THEN 1 END) as pending_today
          FROM videos 
-         WHERE DATE(created_at) = CURRENT_DATE`
+         WHERE (created_at AT TIME ZONE $1)::date = ($2)::date`
       : `SELECT 
            COUNT(CASE WHEN status IN ('uploaded', 'dry_run_completed', 'ready') THEN 1 END) as generated_today,
-           COUNT(CASE WHEN status = 'uploaded' THEN 1 END) as uploaded_today
+           COUNT(CASE WHEN status = 'uploaded' THEN 1 END) as uploaded_today,
+           COUNT(CASE WHEN status = 'failed' THEN 1 END) as failed_today,
+           COUNT(CASE WHEN status IN ('pending', 'running', 'video_generating', 'researching', 'script_generated', 'voice_generated', 'uploading') THEN 1 END) as pending_today
          FROM videos 
          WHERE DATE(created_at) = DATE($1)`;
-    const res = await db.query(queryStr, db.isPostgres() ? [] : [todayStr]);
+
+    const queryParams = db.isPostgres() ? [timezone, todayStr] : [todayStr];
+    const res = await db.query(queryStr, queryParams);
     const generated = parseInt(res.rows[0]?.generated_today || '0', 10);
     const uploaded = parseInt(res.rows[0]?.uploaded_today || '0', 10);
+    const failed = parseInt(res.rows[0]?.failed_today || '0', 10);
+    const pending = parseInt(res.rows[0]?.pending_today || '0', 10);
 
     // Get quota setting
     let quota = env.DAILY_QUOTA;
-    const quotaSetting = await db.query('SELECT value FROM settings WHERE key = $1', ['daily_quota']);
-    if (quotaSetting.rows.length > 0) {
-      quota = parseInt(quotaSetting.rows[0].value, 10) || quota;
-    }
+    try {
+      const quotaSetting = await db.query('SELECT value FROM settings WHERE key = $1', ['daily_quota']);
+      if (quotaSetting.rows.length > 0) {
+        quota = parseInt(quotaSetting.rows[0].value, 10) || quota;
+      }
+    } catch (e) {}
 
     return {
       date: todayStr,
+      timezone,
       generatedToday: generated,
       uploadedToday: uploaded,
+      failedToday: failed,
+      pendingToday: pending,
       quota,
       isQuotaMet: generated >= quota
     };
@@ -101,8 +123,8 @@ class PipelineRunner {
 
     // 3. Register Job in Database
     await db.query(
-      `INSERT INTO jobs (id, job_type, status, scheduled_at, started_at, retry_count)
-       VALUES ($1, 'generate_short', 'running', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 0)`,
+      `INSERT INTO jobs (id, job_type, status, step, progress, stage_message, scheduled_at, started_at, retry_count)
+       VALUES ($1, 'generate_short', 'running', 'initializing', 5, 'Initializing Shorts automation...', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 0)`,
       [jobId]
     );
 
@@ -119,9 +141,11 @@ class PipelineRunner {
         videoRecord = pendingUpload.rows[0];
         videoId = videoRecord.id;
         logger.info(`Resuming previously generated video ready for upload: ${videoRecord.id} (${videoRecord.tool_name})`);
+        await db.updateJobProgress(jobId, 90, 'resuming', `Resuming ready video: ${videoRecord.tool_name}`);
       } else {
         // 5. Topic Research & Selection
         logger.info('Selecting fresh AI topic...');
+        await db.updateJobProgress(jobId, 15, 'researching', 'Discovering trending AI tools & AI updates...');
         const selectedTopic = await researchService.selectNextTopic();
 
         // Insert initial video record
@@ -133,6 +157,7 @@ class PipelineRunner {
         );
 
         // 6. Script Generation
+        await db.updateJobProgress(jobId, 35, 'scripting', `Generating engaging script for ${selectedTopic.tool_name}...`);
         const script = await scriptGenerator.generateScript(selectedTopic);
         await db.query(
           `UPDATE videos SET script = $1, status = 'script_generated', updated_at = CURRENT_TIMESTAMP WHERE id = $2`,
@@ -140,6 +165,7 @@ class PipelineRunner {
         );
 
         // 7. Voiceover Generation (TTS)
+        await db.updateJobProgress(jobId, 55, 'voicing', `Generating neural AI voiceover (${selectedTopic.tool_name})...`);
         const voiceResult = await ttsService.generateSpeech(script);
         await db.query(
           `UPDATE videos SET voice_file = $1, duration_seconds = $2, status = 'voice_generated', updated_at = CURRENT_TIMESTAMP WHERE id = $3`,
@@ -147,12 +173,14 @@ class PipelineRunner {
         );
 
         // 8. Timed Captions Generation
+        await db.updateJobProgress(jobId, 65, 'captions', 'Calculating animated subtitle timing...');
         const timedChunks = captionGenerator.calculateTiming(
           captionGenerator.chunkScript(script),
           voiceResult.duration
         );
 
         // 9. Video Composition (1080x1920 9:16)
+        await db.updateJobProgress(jobId, 70, 'rendering', 'Starting 1080x1920 vertical video composition in FFmpeg...');
         await db.query(
           `UPDATE videos SET status = 'video_generating', updated_at = CURRENT_TIMESTAMP WHERE id = $1`,
           [videoId]
@@ -164,10 +192,20 @@ class PipelineRunner {
           script,
           audioPath: voiceResult.audioPath,
           audioDuration: voiceResult.duration,
-          timedChunks
+          timedChunks,
+          onProgress: (pct, sec, dur) => {
+            const scaledProgress = 70 + Math.round(pct * 0.2); // scales 70% to 90%
+            db.updateJobProgress(
+              jobId,
+              scaledProgress,
+              'rendering',
+              `Encoding 9:16 video: ${pct}% (${sec.toFixed(1)}s / ${dur.toFixed(1)}s)`
+            );
+          }
         });
 
         // 10. Save to Storage (S3 / Local)
+        await db.updateJobProgress(jobId, 90, 'saving', 'Saving media files to storage...');
         const storageAudio = await storageService.saveFile(
           voiceResult.audioPath,
           `audio/${videoId}.mp3`,
@@ -179,7 +217,8 @@ class PipelineRunner {
           'video/mp4'
         );
 
-        // 11. Generate YouTube Metadata
+        // 11. Generate YouTube Metadata & Validation
+        await db.updateJobProgress(jobId, 93, 'metadata', 'Generating SEO title, description, and hashtags...');
         const metadata = await scriptGenerator.generateMetadata(selectedTopic, script);
 
         await db.query(
@@ -210,6 +249,7 @@ class PipelineRunner {
           `UPDATE videos SET status = 'dry_run_completed', updated_at = CURRENT_TIMESTAMP WHERE id = $1`,
           [videoId]
         );
+        await db.updateJobProgress(jobId, 100, 'completed', 'Short generated successfully (Dry Run). Ready to preview.');
         await db.query(
           `UPDATE jobs SET status = 'completed', completed_at = CURRENT_TIMESTAMP WHERE id = $1`,
           [jobId]
@@ -225,6 +265,7 @@ class PipelineRunner {
 
       // 13. YouTube Upload
       logger.info(`Uploading Short to YouTube...`);
+      await db.updateJobProgress(jobId, 96, 'uploading', 'Uploading Short directly to YouTube channel...');
       await db.query(
         `UPDATE videos SET status = 'uploading', updated_at = CURRENT_TIMESTAMP WHERE id = $1`,
         [videoId]
@@ -252,6 +293,7 @@ class PipelineRunner {
         [ytUpload.videoId, ytUpload.youtubeUrl, videoId]
       );
 
+      await db.updateJobProgress(jobId, 100, 'completed', `Published live to YouTube Shorts: ${ytUpload.youtubeUrl}`);
       await db.query(
         `UPDATE jobs SET status = 'completed', completed_at = CURRENT_TIMESTAMP WHERE id = $1`,
         [jobId]
@@ -269,6 +311,7 @@ class PipelineRunner {
       logger.error(`Pipeline failure for Job ${jobId}: ${err.message}`, { error: err.stack });
 
       // Record error on video and job
+      await db.updateJobProgress(jobId, 0, 'failed', `Failed: ${err.message}`);
       await db.query(
         `UPDATE videos SET status = 'failed', error_message = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2`,
         [err.message, videoId]
