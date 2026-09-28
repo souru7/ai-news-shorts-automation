@@ -4,9 +4,9 @@ const youtubeService = require('../services/youtube/youtubeService');
 const logger = require('../utils/logger');
 
 // Step 1: Redirect to Google OAuth consent screen
-router.get('/auth/youtube', (req, res) => {
+router.get('/auth/youtube', async (req, res) => {
   try {
-    const authUrl = youtubeService.generateAuthUrl();
+    const authUrl = await youtubeService.generateAuthUrl();
     res.redirect(authUrl);
   } catch (err) {
     logger.error(`Failed to initiate YouTube OAuth flow: ${err.message}`);

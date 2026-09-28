@@ -57,10 +57,10 @@ app.get('/health', (req, res) => {
 });
 
 // Serve generated media files
-app.use('/media', express.static(path.join(__dirname, 'storage')));
+app.use('/media', express.static(path.join(__dirname, 'storage'), { index: false }));
 
-// Serve static frontend assets
-app.use(express.static(path.join(__dirname, 'public')));
+// Serve static frontend assets (css, js, assets) with index: false to prevent bypassing auth
+app.use(express.static(path.join(__dirname, 'public'), { index: false }));
 
 // Login API
 app.post('/api/auth/login', loginLimiter, async (req, res) => {
@@ -93,9 +93,13 @@ app.get('/login', (req, res) => {
   res.sendFile(path.join(__dirname, 'public/login.html'));
 });
 
-// Protected Dashboard route
+// Strictly Protected Dashboard routes
 app.get('/', requireAuth, (req, res) => {
-  res.sendFile(path.join(__dirname, 'public/index.html'));
+  res.sendFile(path.join(__dirname, 'public/dashboard.html'));
+});
+
+app.get('/dashboard', requireAuth, (req, res) => {
+  res.sendFile(path.join(__dirname, 'public/dashboard.html'));
 });
 
 // Mount modular sub-routers

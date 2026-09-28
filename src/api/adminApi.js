@@ -126,6 +126,53 @@ router.delete('/videos/:videoId', requireAuth, async (req, res) => {
   }
 });
 
+// Instantly publish an existing video to YouTube
+router.post('/publish/:videoId', requireAuth, async (req, res) => {
+  try {
+    const vidRes = await db.query('SELECT * FROM videos WHERE id = $1', [req.params.videoId]);
+    if (vidRes.rows.length === 0) return res.status(404).json({ error: 'Video not found' });
+    const video = vidRes.rows[0];
+
+    if (!video.video_file) {
+      return res.status(400).json({ error: 'No video file has been generated for this item yet.' });
+    }
+
+    logger.info(`Manual upload to YouTube initiated for video: ${video.id} ("${video.title}")`);
+
+    const youtubeService = require('../services/youtube/youtubeService');
+    const parsedTags = Array.isArray(video.tags)
+      ? video.tags
+      : typeof video.tags === 'string' && video.tags.startsWith('[')
+        ? JSON.parse(video.tags)
+        : (video.tags || '').split(',');
+
+    const uploadRes = await youtubeService.uploadShort({
+      filePath: video.video_file,
+      title: video.title || `${video.tool_name} #Shorts`,
+      description: video.description || `${video.topic}\n\n#AI #Shorts`,
+      tags: parsedTags,
+      privacyStatus: 'public'
+    });
+
+    await db.query(
+      `UPDATE videos 
+       SET status = 'uploaded', youtube_video_id = $1, youtube_url = $2, uploaded_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP 
+       WHERE id = $3`,
+      [uploadRes.videoId, uploadRes.youtubeUrl, video.id]
+    );
+
+    res.json({
+      success: true,
+      message: 'Short successfully published to YouTube!',
+      youtubeVideoId: uploadRes.videoId,
+      youtubeUrl: uploadRes.youtubeUrl
+    });
+  } catch (err) {
+    logger.error(`Manual publish error: ${err.message}`);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // Get settings
 router.get('/settings', requireAuth, async (req, res) => {
   try {
@@ -141,7 +188,10 @@ router.get('/settings', requireAuth, async (req, res) => {
 // Save settings
 router.post('/settings', requireAuth, async (req, res) => {
   try {
-    const allowedKeys = ['daily_quota', 'dry_run', 'tts_provider', 'tts_voice', 'youtube_privacy', 'default_hashtags'];
+    const allowedKeys = [
+      'daily_quota', 'dry_run', 'tts_provider', 'tts_voice', 'youtube_privacy', 'default_hashtags',
+      'youtube_client_id', 'youtube_client_secret', 'youtube_refresh_token', 'cron_secret'
+    ];
     for (const [key, val] of Object.entries(req.body)) {
       if (allowedKeys.includes(key)) {
         await db.query(
@@ -155,7 +205,7 @@ router.post('/settings', requireAuth, async (req, res) => {
         });
       }
     }
-    res.json({ success: true, message: 'Settings saved.' });
+    res.json({ success: true, message: 'Settings saved successfully.' });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

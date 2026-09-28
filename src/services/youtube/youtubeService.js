@@ -8,20 +8,40 @@ class YouTubeService {
   constructor() {
     this.clientId = env.YOUTUBE_CLIENT_ID;
     this.clientSecret = env.YOUTUBE_CLIENT_SECRET;
-    this.redirectUri = env.YOUTUBE_REDIRECT_URI;
+    this.redirectUri = env.YOUTUBE_REDIRECT_URI || `${env.APP_URL}/auth/youtube/callback`;
+  }
+
+  /**
+   * Get client credentials from settings or environment
+   */
+  async getClientCredentials() {
+    let clientId = this.clientId || env.YOUTUBE_CLIENT_ID;
+    let clientSecret = this.clientSecret || env.YOUTUBE_CLIENT_SECRET;
+    let redirectUri = this.redirectUri;
+
+    try {
+      const idSetting = await db.query('SELECT value FROM settings WHERE key = $1', ['youtube_client_id']);
+      if (idSetting.rows.length > 0 && idSetting.rows[0].value) clientId = idSetting.rows[0].value;
+
+      const secretSetting = await db.query('SELECT value FROM settings WHERE key = $1', ['youtube_client_secret']);
+      if (secretSetting.rows.length > 0 && secretSetting.rows[0].value) clientSecret = secretSetting.rows[0].value;
+    } catch (e) {}
+
+    return { clientId, clientSecret, redirectUri };
   }
 
   /**
    * Initialize OAuth2 client
    */
-  createOAuth2Client() {
-    if (!this.clientId || !this.clientSecret) {
-      return null;
+  async createOAuth2Client() {
+    const creds = await this.getClientCredentials();
+    if (!creds.clientId || !creds.clientSecret) {
+      throw new Error('YOUTUBE_CLIENT_ID and YOUTUBE_CLIENT_SECRET are not configured. You can configure them in the Dashboard Settings tab.');
     }
     return new google.auth.OAuth2(
-      this.clientId,
-      this.clientSecret,
-      this.redirectUri
+      creds.clientId,
+      creds.clientSecret,
+      creds.redirectUri
     );
   }
 
@@ -69,11 +89,8 @@ class YouTubeService {
   /**
    * Generate OAuth URL for channel authorization
    */
-  generateAuthUrl() {
-    const oauth2Client = this.createOAuth2Client();
-    if (!oauth2Client) {
-      throw new Error('YOUTUBE_CLIENT_ID and YOUTUBE_CLIENT_SECRET are not configured.');
-    }
+  async generateAuthUrl() {
+    const oauth2Client = await this.createOAuth2Client();
 
     const scopes = [
       'https://www.googleapis.com/auth/youtube.upload',
@@ -91,10 +108,7 @@ class YouTubeService {
    * Handle authorization code exchange in OAuth callback
    */
   async handleAuthCallback(code) {
-    const oauth2Client = this.createOAuth2Client();
-    if (!oauth2Client) {
-      throw new Error('OAuth client credentials not configured.');
-    }
+    const oauth2Client = await this.createOAuth2Client();
 
     const { tokens } = await oauth2Client.getToken(code);
     oauth2Client.setCredentials(tokens);
@@ -112,7 +126,7 @@ class YouTubeService {
    * Get an authorized YouTube client instance
    */
   async getAuthorizedYouTubeClient() {
-    const oauth2Client = this.createOAuth2Client();
+    const oauth2Client = await this.createOAuth2Client();
     if (!oauth2Client) {
       throw new Error('YouTube OAuth credentials not configured in environment.');
     }

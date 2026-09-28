@@ -144,6 +144,10 @@ function renderVideoRow(v, isFullView) {
   const dateStr = new Date(v.created_at).toLocaleDateString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
 
   if (!isFullView) {
+    const publishBtn = (v.status !== 'uploaded' && v.video_file)
+      ? `<button class="btn btn-primary" style="padding:4px 8px; font-size:11px; background:#10b981; border:none;" onclick="publishVideo('${v.id}')">🚀 Publish</button>`
+      : '';
+
     return `
       <tr>
         <td>${thumbBtn}</td>
@@ -155,11 +159,18 @@ function renderVideoRow(v, isFullView) {
         <td><span class="badge badge-${v.status}">${v.status.replace(/_/g, ' ')}</span></td>
         <td>${ytLink}</td>
         <td>
-          <button class="btn btn-secondary" style="padding:6px 10px; font-size:12px;" onclick="retryVideo('${v.id}')">Retry</button>
+          <div style="display:flex; gap:6px;">
+            ${publishBtn}
+            <button class="btn btn-secondary" style="padding:4px 8px; font-size:11px;" onclick="retryVideo('${v.id}')">Retry</button>
+          </div>
         </td>
       </tr>
     `;
   }
+
+  const publishBtn = (v.status !== 'uploaded' && v.video_file)
+    ? `<button class="btn btn-primary" style="padding:6px 10px; font-size:12px; background:#10b981; border:none;" onclick="publishVideo('${v.id}')">🚀 Publish</button>`
+    : '';
 
   return `
     <tr>
@@ -174,6 +185,7 @@ function renderVideoRow(v, isFullView) {
       <td>${ytLink}</td>
       <td>
         <div style="display:flex; gap:6px;">
+          ${publishBtn}
           <button class="btn btn-secondary" style="padding:6px 10px; font-size:12px;" onclick="retryVideo('${v.id}')" title="Retry">↻</button>
           <button class="btn btn-secondary" style="padding:6px 10px; font-size:12px; color:#fb7185;" onclick="deleteVideo('${v.id}')" title="Delete">🗑</button>
         </div>
@@ -182,20 +194,53 @@ function renderVideoRow(v, isFullView) {
   `;
 }
 
-async function triggerManualShort() {
-  const isDryRun = confirm('Do you want to run in DRY RUN mode (generates video & audio without publishing to YouTube)?\n\nClick [OK] for Dry Run (Recommended for testing)\nClick [Cancel] for Live YouTube Upload');
+// 1. Instantly create & publish to YouTube Shorts
+async function triggerInstantPublish() {
+  if (!confirm('⚡ Start generating and automatically publish to YouTube Shorts immediately?')) return;
   try {
     const res = await fetch('/api/admin/generate-now', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ isDryRun })
+      body: JSON.stringify({ isDryRun: false })
     });
     const data = await res.json();
-    alert(data.message || 'Generation initiated!');
+    alert('🚀 Autonomous generation & YouTube upload started! Monitor real-time status below.');
     loadStats();
     loadVideos();
   } catch (err) {
     alert('Trigger failed: ' + err.message);
+  }
+}
+
+// 2. Generate preview (Dry Run)
+async function triggerDryRun() {
+  try {
+    const res = await fetch('/api/admin/generate-now', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ isDryRun: true })
+    });
+    const data = await res.json();
+    alert('🧪 Test generation started! The video will be rendered and ready to preview here without publishing to YouTube.');
+    loadStats();
+    loadVideos();
+  } catch (err) {
+    alert('Dry run trigger failed: ' + err.message);
+  }
+}
+
+// 3. Publish specific existing video to YouTube
+async function publishVideo(videoId) {
+  if (!confirm('🚀 Publish this Short to your YouTube channel right now?')) return;
+  try {
+    const res = await fetch(`/api/admin/publish/${videoId}`, { method: 'POST' });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Upload failed');
+    alert(`🎉 Successfully published to YouTube!\n\nLink: ${data.youtubeUrl}`);
+    loadStats();
+    loadVideos();
+  } catch (err) {
+    alert('YouTube Upload Failed: ' + err.message);
   }
 }
 
@@ -249,6 +294,9 @@ async function loadSettings() {
     if (settings.youtube_privacy) document.getElementById('setting-privacy').value = settings.youtube_privacy;
     if (settings.default_hashtags) document.getElementById('setting-hashtags').value = settings.default_hashtags;
     if (settings.dry_run !== undefined) document.getElementById('setting-dryrun').checked = settings.dry_run === 'true';
+    if (settings.youtube_client_id) document.getElementById('setting-yt-client-id').value = settings.youtube_client_id;
+    if (settings.youtube_client_secret) document.getElementById('setting-yt-client-secret').value = settings.youtube_client_secret;
+    if (settings.youtube_refresh_token) document.getElementById('setting-yt-refresh-token').value = settings.youtube_refresh_token;
   } catch (err) {
     console.error('Error loading settings:', err);
   }
@@ -261,7 +309,10 @@ async function saveSettings(e) {
     tts_voice: document.getElementById('setting-voice').value,
     youtube_privacy: document.getElementById('setting-privacy').value,
     default_hashtags: document.getElementById('setting-hashtags').value,
-    dry_run: document.getElementById('setting-dryrun').checked ? 'true' : 'false'
+    dry_run: document.getElementById('setting-dryrun').checked ? 'true' : 'false',
+    youtube_client_id: document.getElementById('setting-yt-client-id').value.trim(),
+    youtube_client_secret: document.getElementById('setting-yt-client-secret').value.trim(),
+    youtube_refresh_token: document.getElementById('setting-yt-refresh-token').value.trim()
   };
 
   try {
@@ -273,6 +324,7 @@ async function saveSettings(e) {
     const data = await res.json();
     alert('Settings saved successfully!');
     loadStats();
+    loadYouTubeStatus();
   } catch (err) {
     alert('Failed to save settings: ' + err.message);
   }

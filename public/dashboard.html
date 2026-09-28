@@ -63,8 +63,11 @@
           <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/></svg>
           Refresh
         </button>
-        <button class="btn btn-primary" onclick="triggerManualShort()">
-          ⚡ Generate Short Now
+        <button class="btn btn-secondary" onclick="triggerDryRun()" title="Generate video & captions to preview without publishing to YouTube">
+          🧪 Test Short (Dry Run)
+        </button>
+        <button class="btn btn-primary" onclick="triggerInstantPublish()" style="background:linear-gradient(135deg, #10b981, #059669); box-shadow: 0 4px 20px rgba(16, 185, 129, 0.4);" title="Immediately research, generate video, and publish to YouTube Shorts">
+          ⚡ Create & Publish Short Now
         </button>
         <a id="btn-yt-connect" href="/auth/youtube" class="btn btn-yt">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M10 15l5.19-3L10 9v6m11.56-7.83c.13.47.22 1.1.28 1.9.07.8.1 1.49.1 2.09L22 12c0 2.19-.16 3.8-.44 4.83-.25.9-.83 1.48-1.73 1.73-.47.13-1.33.22-2.65.28-1.3.07-2.49.1-3.59.1L12 19c-4.19 0-6.8-.16-7.83-.44-.9-.25-1.48-.83-1.73-1.73-.13-.47-.22-1.1-.28-1.9-.07-.8-.1-1.49-.1-2.09L2 12c0-2.19.16-3.8.44-4.83.25-.9.83-1.48 1.73-1.73.47-.13 1.33-.22 2.65-.28 1.3-.07 2.49-.1 3.59-.1L12 5c4.19 0 6.8.16 7.83.44.9.25 1.48.83 1.73 1.73z"/></svg>
@@ -229,11 +232,21 @@
             <input type="text" id="setting-hashtags" value="#AI #AITools #TechNews #Productivity #Shorts" style="width:100%; padding:12px; border-radius:8px; background:rgba(0,0,0,0.4); border:1px solid var(--border-color); color:#fff;">
           </div>
 
-          <div style="display:flex; align-items:center; gap:12px; padding:12px; background:rgba(56,189,248,0.06); border-radius:8px; border:1px solid var(--border-highlight);">
-            <input type="checkbox" id="setting-dryrun" style="width:20px; height:20px;">
-            <div>
-              <div style="font-weight:600; font-size:14px;">DRY RUN MODE</div>
-              <div style="font-size:12px; color:var(--text-muted);">Fully research, generate script, synthesize voice, build 9:16 video & validate without publishing to YouTube.</div>
+          <div style="border-top:1px solid var(--border-color); padding-top:20px; margin-top:10px;">
+            <h4 style="font-family:'Outfit'; font-size:16px; color:var(--accent-cyan); margin-bottom:12px;">YouTube OAuth Credentials</h4>
+            <div style="display:flex; flex-direction:column; gap:14px;">
+              <div>
+                <label style="display:block; font-size:12px; font-weight:600; margin-bottom:6px;">YOUTUBE CLIENT ID</label>
+                <input type="text" id="setting-yt-client-id" placeholder="306027...apps.googleusercontent.com" style="width:100%; padding:10px; border-radius:8px; background:rgba(0,0,0,0.4); border:1px solid var(--border-color); color:#fff; font-size:13px;">
+              </div>
+              <div>
+                <label style="display:block; font-size:12px; font-weight:600; margin-bottom:6px;">YOUTUBE CLIENT SECRET</label>
+                <input type="password" id="setting-yt-client-secret" placeholder="GOCSPX-..." style="width:100%; padding:10px; border-radius:8px; background:rgba(0,0,0,0.4); border:1px solid var(--border-color); color:#fff; font-size:13px;">
+              </div>
+              <div>
+                <label style="display:block; font-size:12px; font-weight:600; margin-bottom:6px;">YOUTUBE REFRESH TOKEN</label>
+                <input type="password" id="setting-yt-refresh-token" placeholder="1//0gog..." style="width:100%; padding:10px; border-radius:8px; background:rgba(0,0,0,0.4); border:1px solid var(--border-color); color:#fff; font-size:13px;">
+              </div>
             </div>
           </div>
 
