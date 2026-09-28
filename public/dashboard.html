@@ -20,27 +20,27 @@
     </div>
 
     <ul class="nav-links">
-      <li class="nav-item active" onclick="switchTab('dashboard')">
+      <li class="nav-item active" data-tab="dashboard" onclick="switchTab('dashboard')">
         <svg viewBox="0 0 24 24"><path d="M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8V11h-8v10zm0-18v6h8V3h-8z"/></svg>
         Dashboard
       </li>
-      <li class="nav-item" onclick="switchTab('videos')">
+      <li class="nav-item" data-tab="videos" onclick="switchTab('videos')">
         <svg viewBox="0 0 24 24"><path d="M4 6H2v14c0 1.1.9 2 2 2h14v-2H4V6zm16-4H8c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-8 12.5v-9l6 4.5-6 4.5z"/></svg>
         Videos & Shorts
       </li>
-      <li class="nav-item" onclick="switchTab('research')">
+      <li class="nav-item" data-tab="research" onclick="switchTab('research')">
         <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/></svg>
         AI Research Feed
       </li>
-      <li class="nav-item" onclick="switchTab('settings')">
+      <li class="nav-item" data-tab="settings" onclick="switchTab('settings')">
         <svg viewBox="0 0 24 24"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg>
         Automation Settings
       </li>
-      <li class="nav-item" onclick="switchTab('diagnostics')">
+      <li class="nav-item" data-tab="diagnostics" onclick="switchTab('diagnostics')">
         <svg viewBox="0 0 24 24"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 14l-4-4 1.41-1.41L12 14.17l6.59-6.59L20 9l-8 8z"/></svg>
         Diagnostics
       </li>
-      <li class="nav-item" onclick="switchTab('logs')">
+      <li class="nav-item" data-tab="logs" onclick="switchTab('logs')">
         <svg viewBox="0 0 24 24"><path d="M20 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm-5 14H4v-4h11v4zm0-5H4V9h11v4zm5 5h-4V9h4v9z"/></svg>
         System Logs
       </li>
@@ -85,27 +85,6 @@
         </button>
       </div>
     </header>
-
-    <!-- Quick Action / Instant Execution Hero Banner -->
-    <div style="background: linear-gradient(135deg, rgba(16, 185, 129, 0.15), rgba(56, 189, 248, 0.1)); border: 1px solid rgba(16, 185, 129, 0.4); border-radius: 16px; padding: 20px 24px; margin-bottom: 24px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 16px; box-shadow: 0 8px 32px rgba(16, 185, 129, 0.15);">
-      <div>
-        <div style="font-size: 16px; font-weight: 700; color: #34d399; display: flex; align-items: center; gap: 8px;">
-          <span>⚡ Instant Autonomous Shorts Engine</span>
-          <span style="font-size: 11px; background: rgba(16, 185, 129, 0.2); color: #6ee7b7; padding: 2px 8px; border-radius: 12px; border: 1px solid rgba(16, 185, 129, 0.3);">Live on YouTube</span>
-        </div>
-        <div style="font-size: 13px; color: var(--text-muted); margin-top: 4px;">
-          Researches top AI tools, creates voiceover, generates vertical 9:16 video with animated subtitles, and uploads directly to YouTube Shorts.
-        </div>
-      </div>
-      <div style="display: flex; gap: 12px; align-items: center;">
-        <button onclick="triggerDryRun()" class="btn btn-secondary" style="border-color: rgba(56, 189, 248, 0.4); font-weight: 600;">
-          🧪 Render Preview (Dry Run)
-        </button>
-        <button onclick="triggerInstantPublish()" class="btn btn-primary" style="background: linear-gradient(135deg, #10b981, #059669); font-weight: 700; padding: 12px 22px; font-size: 14px; box-shadow: 0 4px 20px rgba(16, 185, 129, 0.5);">
-          ⚡ Generate & Publish Short Instantly
-        </button>
-      </div>
-    </div>
 
     <!-- Real-Time Video Generation Progress Card (Auto-appears when generation is active) -->
     <div id="live-progress-card" style="display:none; background: linear-gradient(135deg, rgba(15, 23, 42, 0.95), rgba(30, 27, 75, 0.95)); border: 1px solid #38bdf8; border-radius: 16px; padding: 24px; margin-bottom: 24px; box-shadow: 0 10px 40px rgba(56, 189, 248, 0.25);">
@@ -152,6 +131,30 @@
       </div>
     </div>
 
+    
+    <!-- Section 1: Dashboard -->
+    <section id="section-dashboard" class="section active">
+      <!-- Quick Action / Instant Execution Hero Banner -->
+    <div style="background: linear-gradient(135deg, rgba(16, 185, 129, 0.15), rgba(56, 189, 248, 0.1)); border: 1px solid rgba(16, 185, 129, 0.4); border-radius: 16px; padding: 20px 24px; margin-bottom: 24px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 16px; box-shadow: 0 8px 32px rgba(16, 185, 129, 0.15);">
+      <div>
+        <div style="font-size: 16px; font-weight: 700; color: #34d399; display: flex; align-items: center; gap: 8px;">
+          <span>⚡ Instant Autonomous Shorts Engine</span>
+          <span style="font-size: 11px; background: rgba(16, 185, 129, 0.2); color: #6ee7b7; padding: 2px 8px; border-radius: 12px; border: 1px solid rgba(16, 185, 129, 0.3);">Live on YouTube</span>
+        </div>
+        <div style="font-size: 13px; color: var(--text-muted); margin-top: 4px;">
+          Researches top AI tools, creates voiceover, generates vertical 9:16 video with animated subtitles, and uploads directly to YouTube Shorts.
+        </div>
+      </div>
+      <div style="display: flex; gap: 12px; align-items: center;">
+        <button onclick="triggerDryRun()" class="btn btn-secondary" style="border-color: rgba(56, 189, 248, 0.4); font-weight: 600;">
+          🧪 Render Preview (Dry Run)
+        </button>
+        <button onclick="triggerInstantPublish()" class="btn btn-primary" style="background: linear-gradient(135deg, #10b981, #059669); font-weight: 700; padding: 12px 22px; font-size: 14px; box-shadow: 0 4px 20px rgba(16, 185, 129, 0.5);">
+          ⚡ Generate & Publish Short Instantly
+        </button>
+      </div>
+    </div>
+
     <!-- Stat Cards Grid -->
     <div class="stats-grid">
       <div class="stat-card">
@@ -191,8 +194,7 @@
       </div>
     </div>
 
-    <!-- Section 1: Dashboard -->
-    <section id="section-dashboard" class="section active">
+    
       <div class="content-card">
         <div class="card-title-bar">
           <div class="card-title">Recent Automated Shorts</div>
@@ -399,5 +401,6 @@
   </div>
 
   <script src="/js/dashboard.js"></script>
+  <div id="toast-container"></div>
 </body>
 </html>

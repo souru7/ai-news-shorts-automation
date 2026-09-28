@@ -1,65 +1,161 @@
-// AI Shorts Automation Dashboard Controller
+// AI Shorts Automation Studio - Dashboard Controller
 
 let activeTab = 'dashboard';
 let pollTimer = null;
 let progressPollTimer = null;
+let isJobActive = false;
+
+const TAB_METADATA = {
+  dashboard: {
+    title: 'Automation Dashboard',
+    subtitle: 'Publishing 2 High-Impact AI News Shorts Daily to YouTube'
+  },
+  videos: {
+    title: 'All Generated AI Shorts',
+    subtitle: 'Video Catalog, Direct 9:16 Previews & Autonomous YouTube Publishing'
+  },
+  research: {
+    title: 'AI Research Feed',
+    subtitle: 'Curated AI Tools & Daily Tech News Discovered by Autonomous Engine'
+  },
+  settings: {
+    title: 'Automation Settings',
+    subtitle: 'Configure API Keys, Daily Quota, Neural Voices & Cron Trigger'
+  },
+  diagnostics: {
+    title: 'System Diagnostics',
+    subtitle: 'Production Subsystems, FFmpeg Media Encoder & YouTube API Health'
+  },
+  logs: {
+    title: 'Live System Logs',
+    subtitle: 'Real-time Node.js & Cron Execution Log Terminal'
+  }
+};
 
 document.addEventListener('DOMContentLoaded', () => {
-  // Check URL query parameters (e.g. YouTube connected message)
+  // Check URL query parameters (e.g. YouTube OAuth redirect responses)
   const params = new URLSearchParams(window.location.search);
   if (params.get('youtube') === 'connected') {
-    alert('🎉 YouTube Channel successfully connected! Automated Shorts can now be published directly.');
+    showToast('YouTube Connected', '🎉 YouTube Channel successfully verified and connected!', 'success');
     window.history.replaceState({}, document.title, window.location.pathname);
   } else if (params.get('youtube') === 'error') {
-    alert(`⚠️ YouTube Connection Failed: ${params.get('msg') || 'Unknown error'}`);
+    showToast('YouTube Connection Failed', params.get('msg') || 'Authentication was cancelled or rejected.', 'error');
     window.history.replaceState({}, document.title, window.location.pathname);
   }
 
+  // Initial loads
   refreshData();
   loadSettings();
   loadLogs();
   checkActiveJob();
 
-  // Polling every 2.5 seconds for real-time video generation percentage and active job tracking
-  progressPollTimer = setInterval(checkActiveJob, 2500);
+  // Progress polling (every 1.8 seconds)
+  progressPollTimer = setInterval(checkActiveJob, 1800);
 
-  // Polling every 12 seconds for overall statistics & video lists
+  // Background stats polling (every 12 seconds)
   pollTimer = setInterval(() => {
     loadStats();
     if (activeTab === 'dashboard' || activeTab === 'videos') {
       loadVideos();
-    }
-    if (activeTab === 'logs') {
+    } else if (activeTab === 'logs') {
       loadLogs();
-    }
-    if (activeTab === 'diagnostics') {
+    } else if (activeTab === 'diagnostics') {
       loadDiagnostics();
     }
   }, 12000);
 });
 
+// ----------------------------------------------------
+// Tab Switching Controller
+// ----------------------------------------------------
 function switchTab(tabId) {
   activeTab = tabId;
-  document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
-  document.querySelectorAll('.section').forEach(el => el.classList.remove('active'));
 
-  const clickedNav = Array.from(document.querySelectorAll('.nav-item')).find(el => 
-    el.textContent.trim().toLowerCase().includes(tabId)
-  );
-  if (clickedNav) clickedNav.classList.add('active');
+  // 1. Highlight sidebar navigation item
+  document.querySelectorAll('.nav-item').forEach(el => {
+    if (el.getAttribute('data-tab') === tabId) {
+      el.classList.add('active');
+    } else {
+      el.classList.remove('active');
+    }
+  });
+
+  // 2. Toggle active section
+  document.querySelectorAll('.section').forEach(el => {
+    el.classList.remove('active');
+  });
 
   const targetSection = document.getElementById(`section-${tabId}`);
-  if (targetSection) targetSection.classList.add('active');
+  if (targetSection) {
+    targetSection.classList.add('active');
+  }
 
-  if (tabId === 'research') loadResearch();
-  if (tabId === 'settings') loadSettings();
-  if (tabId === 'logs') loadLogs();
-  if (tabId === 'videos') loadVideos();
-  if (tabId === 'diagnostics') loadDiagnostics();
+  // 3. Update top header title & description
+  const meta = TAB_METADATA[tabId] || { title: 'Automation Dashboard', subtitle: '' };
+  const headingEl = document.getElementById('page-heading');
+  const subHeadingEl = document.getElementById('page-subheading');
+  if (headingEl) headingEl.textContent = meta.title;
+  if (subHeadingEl) subHeadingEl.textContent = meta.subtitle;
+
+  // 4. Smooth scroll to top of main viewport
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+
+  // 5. Trigger tab-specific data load
+  if (tabId === 'dashboard') {
+    refreshData();
+  } else if (tabId === 'videos') {
+    loadVideos();
+  } else if (tabId === 'research') {
+    loadResearch();
+  } else if (tabId === 'settings') {
+    loadSettings();
+  } else if (tabId === 'diagnostics') {
+    loadDiagnostics();
+  } else if (tabId === 'logs') {
+    loadLogs();
+  }
 }
 
 async function refreshData() {
   await Promise.all([loadStats(), loadYouTubeStatus(), loadVideos(), checkActiveJob()]);
+}
+
+// ----------------------------------------------------
+// Toast Notification Engine
+// ----------------------------------------------------
+function showToast(title, message, type = 'info') {
+  const container = document.getElementById('toast-container');
+  if (!container) return;
+
+  const toast = document.createElement('div');
+  toast.className = `toast toast-${type}`;
+
+  const iconMap = {
+    success: '✅',
+    error: '❌',
+    warning: '⚠️',
+    info: '⚡'
+  };
+
+  toast.innerHTML = `
+    <div class="toast-icon">${iconMap[type] || '⚡'}</div>
+    <div class="toast-body">
+      <div class="toast-title">${escapeHtml(title)}</div>
+      <div>${escapeHtml(message)}</div>
+    </div>
+    <button class="toast-close" onclick="this.parentElement.remove()">&times;</button>
+  `;
+
+  container.appendChild(toast);
+
+  // Auto remove after 5 seconds
+  setTimeout(() => {
+    if (toast.parentElement) {
+      toast.style.opacity = '0';
+      toast.style.transform = 'translateX(100%)';
+      setTimeout(() => toast.remove(), 300);
+    }
+  }, 5000);
 }
 
 // ----------------------------------------------------
@@ -76,31 +172,55 @@ async function checkActiveJob() {
     if (!card) return;
 
     if (data.active && data.job) {
+      isJobActive = true;
       card.style.display = 'block';
-      const pct = Math.min(Math.max(data.job.progress || 0, 0), 100);
+      const pct = Math.min(Math.max(data.job.progress || 0, 5), 100);
       const step = data.job.step || 'processing';
-      const stageMsg = data.job.stage_message || 'Processing automated pipeline...';
+      const stageMsg = data.job.stage_message || 'Processing automated AI pipeline...';
 
       // Update progress badges and bar
-      document.getElementById('progress-percent-badge').textContent = `${pct}%`;
-      document.getElementById('progress-bar-fill').style.width = `${pct}%`;
-      document.getElementById('progress-step-badge').textContent = step.toUpperCase();
-      document.getElementById('progress-stage-desc').textContent = stageMsg;
+      const pctEl = document.getElementById('progress-percent-badge');
+      const barEl = document.getElementById('progress-bar-fill');
+      const stepEl = document.getElementById('progress-step-badge');
+      const descEl = document.getElementById('progress-stage-desc');
+      const timeEl = document.getElementById('progress-time-elapsed');
 
-      if (data.job.started_at) {
+      if (pctEl) pctEl.textContent = `${pct}%`;
+      if (barEl) barEl.style.width = `${pct}%`;
+      if (stepEl) stepEl.textContent = step.toUpperCase();
+      if (descEl) descEl.textContent = stageMsg;
+
+      if (timeEl && data.job.started_at) {
         const elapsedSec = Math.round((Date.now() - new Date(data.job.started_at).getTime()) / 1000);
-        document.getElementById('progress-time-elapsed').textContent = `Elapsed: ${elapsedSec}s`;
+        timeEl.textContent = `Elapsed: ${elapsedSec}s`;
       }
 
       // Update step checklist indicators
       updateStepChecklist(pct);
     } else {
-      // If was previously showing and reached 100%, show completed state briefly before hiding
-      const currentPct = document.getElementById('progress-percent-badge')?.textContent;
-      if (currentPct === '100%') {
+      // If we were previously active and now finished
+      if (isJobActive) {
+        isJobActive = false;
+        const pctEl = document.getElementById('progress-percent-badge');
+        const barEl = document.getElementById('progress-bar-fill');
+        const stepEl = document.getElementById('progress-step-badge');
+        const descEl = document.getElementById('progress-stage-desc');
+
+        if (pctEl) pctEl.textContent = '100%';
+        if (barEl) barEl.style.width = '100%';
+        if (stepEl) stepEl.textContent = 'COMPLETED';
+        if (descEl) descEl.textContent = '✨ Autonomous Short pipeline completed successfully!';
+        updateStepChecklist(100);
+
+        showToast('Pipeline Finished', 'Short generated and processed successfully!', 'success');
+        loadStats();
+        loadVideos();
+
         setTimeout(() => {
-          if (card) card.style.display = 'none';
-        }, 6000);
+          if (!isJobActive && card) {
+            card.style.display = 'none';
+          }
+        }, 8000);
       } else {
         card.style.display = 'none';
       }
@@ -228,16 +348,19 @@ async function loadYouTubeStatus() {
 
 async function testYouTubeConnection() {
   try {
+    showToast('Testing Connection', 'Validating OAuth token against target YouTube channel...', 'info');
     const res = await fetch('/api/youtube/test-connection');
     const data = await res.json();
     if (data.isCorrect) {
+      showToast('Channel Verified', `✅ Target matched: ${data.title} (${data.channelId})`, 'success');
       alert(`✅ YouTube Channel Verified!\n\nTarget Channel: ${data.targetChannelId}\nConnected Channel: ${data.title} (${data.channelId})\nSubscribers: ${data.subscriberCount}\nVideos: ${data.videoCount}\n\nStatus: Ready for autonomous YouTube Shorts publishing!`);
     } else {
+      showToast('Connection Issue', data.message || data.error || 'Connection failed', 'warning');
       alert(`⚠️ YouTube Connection Test Result:\n\n${data.message || data.error || 'Connection failed'}\n\nPlease click "Connect YouTube Channel" and authorize with Google account souroabh@gmail.com selecting target channel UCje0Deygks4X5w1oCRB-lew.`);
     }
     loadYouTubeStatus();
   } catch (err) {
-    alert(`Failed to test connection: ${err.message}`);
+    showToast('Test Failed', err.message, 'error');
   }
 }
 
@@ -249,13 +372,13 @@ async function disconnectYouTube() {
     const res = await fetch('/api/youtube/disconnect', { method: 'POST' });
     const data = await res.json();
     if (data.success) {
-      alert('YouTube channel successfully disconnected.');
+      showToast('Disconnected', 'YouTube channel credentials removed.', 'info');
     } else {
-      alert('Failed: ' + (data.error || 'Unknown error'));
+      showToast('Disconnect Failed', data.error || 'Unknown error', 'error');
     }
     await refreshData();
   } catch (err) {
-    alert('Failed to disconnect: ' + err.message);
+    showToast('Disconnect Error', err.message, 'error');
   }
 }
 
@@ -275,17 +398,21 @@ async function loadVideos() {
     const videos = data.videos || [];
 
     // 1. Dashboard recent table (top 5)
-    if (videos.length === 0) {
-      recentTable.innerHTML = `<tr><td colspan="6" style="text-align:center; padding:30px; color:var(--text-dim);">No shorts generated yet. Click "⚡ Generate & Publish Short Instantly" to create your first video!</td></tr>`;
-    } else {
-      recentTable.innerHTML = videos.slice(0, 5).map(v => renderVideoRow(v, false)).join('');
+    if (recentTable) {
+      if (videos.length === 0) {
+        recentTable.innerHTML = `<tr><td colspan="6" style="text-align:center; padding:30px; color:var(--text-dim);">No shorts generated yet. Click "⚡ Generate & Publish Short Instantly" to create your first video!</td></tr>`;
+      } else {
+        recentTable.innerHTML = videos.slice(0, 5).map(v => renderVideoRow(v, false)).join('');
+      }
     }
 
     // 2. All videos table
-    if (videos.length === 0) {
-      allTable.innerHTML = `<tr><td colspan="7" style="text-align:center; padding:30px; color:var(--text-dim);">No videos generated yet.</td></tr>`;
-    } else {
-      allTable.innerHTML = videos.map(v => renderVideoRow(v, true)).join('');
+    if (allTable) {
+      if (videos.length === 0) {
+        allTable.innerHTML = `<tr><td colspan="7" style="text-align:center; padding:30px; color:var(--text-dim);">No videos generated yet.</td></tr>`;
+      } else {
+        allTable.innerHTML = videos.map(v => renderVideoRow(v, true)).join('');
+      }
     }
   } catch (err) {
     console.error('Error loading videos:', err);
@@ -305,8 +432,8 @@ function renderVideoRow(v, isFullView) {
   const safeToolName = escapeHtml(v.tool_name || 'AI Tool');
 
   const thumbBtn = isVideoReady 
-    ? `<div class="video-preview-btn" onclick="openModal('${mediaUrl}', '${safeTitle}', '${safeTopic}')">▶</div>`
-    : `<div class="video-preview-btn" style="opacity:0.3; cursor:not-allowed;">⏳</div>`;
+    ? `<div class="video-preview-btn" onclick="openModal('${mediaUrl}', '${safeTitle}', '${safeTopic}')" title="Play Short">▶</div>`
+    : `<div class="video-preview-btn" style="opacity:0.3; cursor:not-allowed;" title="Processing">⏳</div>`;
 
   const ytLink = v.youtube_url 
     ? `<a href="${v.youtube_url}" target="_blank" style="color:var(--accent-cyan); text-decoration:none; font-weight:600;">Open Short ↗</a>`
@@ -364,10 +491,15 @@ function renderVideoRow(v, isFullView) {
 }
 
 // ----------------------------------------------------
-// Pipeline Execution Actions
+// Pipeline Execution Actions (With Instant Live Progress UI)
 // ----------------------------------------------------
 async function triggerInstantPublish() {
   if (!confirm('⚡ Start generating and automatically publish to YouTube Shorts immediately?')) return;
+  
+  // 1. Immediately show live progress card in UI with initial state
+  showLiveProgressUI('INITIALIZING', 'Starting autonomous AI Short research & generation pipeline...');
+  showToast('Short Generation Started', 'Researching top AI tool, synthesizing neural voice & creating 9:16 short...', 'info');
+
   try {
     const res = await fetch('/api/admin/generate-now', {
       method: 'POST',
@@ -375,16 +507,20 @@ async function triggerInstantPublish() {
       body: JSON.stringify({ isDryRun: false })
     });
     const data = await res.json();
-    alert('🚀 Autonomous generation & YouTube upload started! Monitor real-time status below.');
+    if (!res.ok) throw new Error(data.error || 'Server rejected trigger');
+    
+    // Check job status immediately
     checkActiveJob();
-    loadStats();
-    loadVideos();
   } catch (err) {
-    alert('Trigger failed: ' + err.message);
+    showToast('Trigger Failed', err.message, 'error');
   }
 }
 
 async function triggerDryRun() {
+  // 1. Immediately show live progress card in UI
+  showLiveProgressUI('INITIALIZING (DRY RUN)', 'Starting preview generation (will not upload to YouTube)...');
+  showToast('Test Short Started', 'Rendering 9:16 vertical short preview without uploading...', 'info');
+
   try {
     const res = await fetch('/api/admin/generate-now', {
       method: 'POST',
@@ -392,38 +528,64 @@ async function triggerDryRun() {
       body: JSON.stringify({ isDryRun: true })
     });
     const data = await res.json();
-    alert('🧪 Test generation started! The video will be rendered and ready to preview here without publishing to YouTube.');
+    if (!res.ok) throw new Error(data.error || 'Server rejected dry run');
+
     checkActiveJob();
-    loadStats();
-    loadVideos();
   } catch (err) {
-    alert('Dry run trigger failed: ' + err.message);
+    showToast('Dry Run Failed', err.message, 'error');
   }
+}
+
+function showLiveProgressUI(stepText, descText) {
+  const card = document.getElementById('live-progress-card');
+  if (!card) return;
+  
+  card.style.display = 'block';
+  isJobActive = true;
+
+  const pctEl = document.getElementById('progress-percent-badge');
+  const barEl = document.getElementById('progress-bar-fill');
+  const stepEl = document.getElementById('progress-step-badge');
+  const descEl = document.getElementById('progress-stage-desc');
+  const timeEl = document.getElementById('progress-time-elapsed');
+
+  if (pctEl) pctEl.textContent = '5%';
+  if (barEl) barEl.style.width = '5%';
+  if (stepEl) stepEl.textContent = stepText;
+  if (descEl) descEl.textContent = descText;
+  if (timeEl) timeEl.textContent = 'Starting...';
+
+  updateStepChecklist(5);
+  window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
 async function publishVideo(videoId) {
   if (!confirm('🚀 Publish this Short to your YouTube channel right now?')) return;
   try {
+    showToast('Uploading Short', 'Transmitting video to YouTube API...', 'info');
     const res = await fetch(`/api/admin/publish/${videoId}`, { method: 'POST' });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || 'Upload failed');
+    showToast('Published!', '🎉 Video successfully published to YouTube Shorts!', 'success');
     alert(`🎉 Successfully published to YouTube!\n\nLink: ${data.youtubeUrl}`);
     loadStats();
     loadVideos();
   } catch (err) {
+    showToast('Publish Failed', err.message, 'error');
     alert('YouTube Upload Failed: ' + err.message);
   }
 }
 
 async function retryVideo(id) {
   try {
+    showToast('Retrying Short', 'Re-initiating video processing...', 'info');
     const res = await fetch(`/api/admin/retry/${id}`, { method: 'POST' });
     const data = await res.json();
-    alert(data.message || 'Retry initiated');
+    showLiveProgressUI('RETRYING', 'Rebuilding short from step...');
     checkActiveJob();
     loadVideos();
   } catch (err) {
-    alert('Retry failed: ' + err.message);
+    showToast('Retry Failed', err.message, 'error');
   }
 }
 
@@ -431,10 +593,11 @@ async function deleteVideo(id) {
   if (!confirm('Are you sure you want to delete this video and its files?')) return;
   try {
     await fetch(`/api/admin/videos/${id}`, { method: 'DELETE' });
+    showToast('Deleted', 'Video removed successfully.', 'info');
     loadVideos();
     loadStats();
   } catch (err) {
-    alert('Delete failed: ' + err.message);
+    showToast('Delete Failed', err.message, 'error');
   }
 }
 
@@ -443,6 +606,7 @@ async function deleteVideo(id) {
 // ----------------------------------------------------
 async function loadResearch() {
   const tbody = document.getElementById('research-table');
+  if (!tbody) return;
   try {
     const res = await fetch('/api/admin/research');
     if (res.status === 401) return (window.location.href = '/login');
@@ -572,11 +736,11 @@ async function saveSettings(e) {
       body: JSON.stringify(payload)
     });
     const data = await res.json();
-    alert('Settings saved successfully!');
+    showToast('Settings Saved', 'Configuration updated successfully in PostgreSQL!', 'success');
     loadStats();
     loadYouTubeStatus();
   } catch (err) {
-    alert('Failed to save settings: ' + err.message);
+    showToast('Save Error', err.message, 'error');
   }
 }
 
@@ -589,6 +753,7 @@ async function loadLogs() {
     if (!res.ok) return;
     const data = await res.json();
     const term = document.getElementById('terminal-logs');
+    if (!term) return;
     term.innerHTML = (data.logs || []).map(l => {
       const time = new Date(l.timestamp).toLocaleTimeString();
       return `<div class="log-line"><span class="log-time">[${time}]</span> <span class="log-level-${l.level}">[${l.level}]</span> ${escapeHtml(l.message)}</div>`;
@@ -601,6 +766,7 @@ async function loadLogs() {
 function openModal(videoUrl, title, topic) {
   const modal = document.getElementById('video-modal');
   const player = document.getElementById('modal-player');
+  if (!modal || !player) return;
   document.getElementById('modal-video-title').textContent = title;
   document.getElementById('modal-video-topic').textContent = topic;
   player.src = videoUrl;
@@ -610,9 +776,13 @@ function openModal(videoUrl, title, topic) {
 function closeModal() {
   const modal = document.getElementById('video-modal');
   const player = document.getElementById('modal-player');
-  player.pause();
-  player.src = '';
-  modal.classList.remove('active');
+  if (player) {
+    player.pause();
+    player.src = '';
+  }
+  if (modal) {
+    modal.classList.remove('active');
+  }
 }
 
 async function logout() {
