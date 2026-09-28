@@ -24,13 +24,38 @@ class VideoComposer {
   }
 
   /**
-   * Render static graphic header card (Tool name, glowing badge, channel watermark)
+   * Render complete high-definition 1080x1920 9:16 frame for a specific caption segment
    */
-  renderHeaderCard(toolName, topicSummary) {
+  renderCompleteFrame({ tool_name, topic, captionText, isHighlight, progressRatio, tempJobDir, index }) {
     const canvas = createCanvas(1080, 1920);
     const ctx = canvas.getContext('2d');
 
-    // 1. Top Glowing Cyber Badge
+    // 1. Dark Cyber Navy Background Gradient
+    const bgGrad = ctx.createLinearGradient(0, 0, 1080, 1920);
+    bgGrad.addColorStop(0, '#060913');
+    bgGrad.addColorStop(0.4, '#0b1329');
+    bgGrad.addColorStop(0.8, '#171638');
+    bgGrad.addColorStop(1, '#060913');
+    ctx.fillStyle = bgGrad;
+    ctx.fillRect(0, 0, 1080, 1920);
+
+    // Decorative subtle geometric background grid lines
+    ctx.strokeStyle = 'rgba(56, 189, 248, 0.05)';
+    ctx.lineWidth = 1;
+    for (let x = 60; x < 1080; x += 120) {
+      ctx.beginPath();
+      ctx.moveTo(x, 0);
+      ctx.lineTo(x, 1920);
+      ctx.stroke();
+    }
+    for (let y = 100; y < 1920; y += 160) {
+      ctx.beginPath();
+      ctx.moveTo(0, y);
+      ctx.lineTo(1080, y);
+      ctx.stroke();
+    }
+
+    // 2. Top Glowing Cyber Badge
     const badgeY = 160;
     const badgeText = '⚡ DAILY AI UPDATE';
     ctx.font = 'bold 32px sans-serif';
@@ -38,7 +63,6 @@ class VideoComposer {
     const badgeW = textWidth + 60;
     const badgeX = (1080 - badgeW) / 2;
 
-    // Badge background pill
     ctx.fillStyle = 'rgba(56, 189, 248, 0.15)';
     this.drawRoundedRect(ctx, badgeX, badgeY, badgeW, 60, 30);
     ctx.fill();
@@ -46,40 +70,38 @@ class VideoComposer {
     ctx.lineWidth = 2.5;
     ctx.stroke();
 
-    // Badge text
     ctx.fillStyle = '#38bdf8';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillText(badgeText, 1080 / 2, badgeY + 30);
 
-    // 2. Large AI Tool Title Card
+    // 3. Large AI Tool Title Card
     const cardY = 260;
     const cardW = 960;
     const cardH = 220;
     const cardX = (1080 - cardW) / 2;
 
-    // Glassmorphism card background
-    ctx.fillStyle = 'rgba(15, 23, 42, 0.85)';
+    ctx.fillStyle = 'rgba(15, 23, 42, 0.90)';
     this.drawRoundedRect(ctx, cardX, cardY, cardW, cardH, 32);
     ctx.fill();
-    ctx.strokeStyle = 'rgba(148, 163, 184, 0.25)';
+    ctx.strokeStyle = 'rgba(148, 163, 184, 0.3)';
     ctx.lineWidth = 2;
     ctx.stroke();
 
-    // Decorative gradient accent line at top of card
+    // Gradient accent line on top of card
     const grad = ctx.createLinearGradient(cardX, cardY, cardX + cardW, cardY);
     grad.addColorStop(0, '#38bdf8');
     grad.addColorStop(0.5, '#818cf8');
     grad.addColorStop(1, '#c084fc');
     ctx.strokeStyle = grad;
-    ctx.lineWidth = 4;
+    ctx.lineWidth = 5;
     ctx.beginPath();
     ctx.moveTo(cardX + 40, cardY + 2);
     ctx.lineTo(cardX + cardW - 40, cardY + 2);
     ctx.stroke();
 
-    // Tool Name Text (Auto-scaling font size)
-    const displayTool = (toolName || 'AI REVOLUTION').toUpperCase();
+    // Tool Name Text
+    const displayTool = (tool_name || 'AI REVOLUTION').toUpperCase();
     let fontSize = 68;
     ctx.font = `900 ${fontSize}px sans-serif`;
     while (ctx.measureText(displayTool).width > cardW - 80 && fontSize > 36) {
@@ -89,77 +111,67 @@ class VideoComposer {
 
     ctx.fillStyle = '#ffffff';
     ctx.textAlign = 'center';
-    ctx.fillText(displayTool, 1080 / 2, cardY + 90);
+    ctx.fillText(displayTool, 1080 / 2, cardY + 95);
 
     // Subtitle category inside card
     ctx.font = 'bold 30px sans-serif';
     ctx.fillStyle = '#94a3b8';
-    const subText = 'VERIFIED AI TOOL • NEW CAPABILITIES';
-    ctx.fillText(subText, 1080 / 2, cardY + 160);
+    ctx.fillText('VERIFIED AI TOOL • NEW CAPABILITIES', 1080 / 2, cardY + 165);
 
-    // 3. Bottom Safe Area Callout (above YouTube Shorts navigation)
-    const footerY = 1720;
-    ctx.font = 'bold 28px sans-serif';
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
-    ctx.fillText('🔔 SUBSCRIBE FOR 2 DAILY AI SHORTS', 1080 / 2, footerY);
+    // 4. Center / Lower Animated Caption Card
+    const capCardY = 1100;
+    const capCardW = 960;
+    const capCardX = (1080 - capCardW) / 2;
+    const cleanCapText = (captionText || '').toUpperCase().trim();
 
-    const outPath = path.join(this.tempDir, `header_${crypto.randomUUID()}.png`);
-    fs.writeFileSync(outPath, canvas.toBuffer('image/png'));
-    return outPath;
-  }
+    let capFontSize = isHighlight ? 72 : 66;
+    ctx.font = `900 ${capFontSize}px sans-serif`;
 
-  /**
-   * Render individual high-contrast animated caption card for a timed chunk
-   */
-  renderCaptionCard(text, isHighlight = false) {
-    const canvas = createCanvas(1080, 1920);
-    const ctx = canvas.getContext('2d');
+    const lines = this.wrapText(ctx, cleanCapText, capCardW - 120);
+    const lineHeight = capFontSize + 22;
+    const capCardH = Math.max((lines.length * lineHeight) + 70, 160);
 
-    const cleanText = text.toUpperCase().trim();
-    const cardY = 1100;
-    const cardW = 940;
-    const cardX = (1080 - cardW) / 2;
-
-    // Multi-line word wrapping if needed
-    let fontSize = isHighlight ? 72 : 66;
-    ctx.font = `900 ${fontSize}px sans-serif`;
-
-    const lines = this.wrapText(ctx, cleanText, cardW - 100);
-    const lineHeight = fontSize + 20;
-    const cardH = (lines.length * lineHeight) + 70;
-
-    // Glassmorphic dark card with neon border
-    ctx.fillStyle = 'rgba(10, 15, 29, 0.90)';
-    this.drawRoundedRect(ctx, cardX, cardY - 20, cardW, cardH, 28);
+    // Glowing subtitle backdrop
+    ctx.fillStyle = 'rgba(8, 12, 22, 0.95)';
+    this.drawRoundedRect(ctx, capCardX, capCardY - 20, capCardW, capCardH, 28);
     ctx.fill();
 
     ctx.strokeStyle = isHighlight ? '#38bdf8' : 'rgba(255, 230, 0, 0.4)';
-    ctx.lineWidth = 3;
+    ctx.lineWidth = 3.5;
     ctx.stroke();
 
     // Draw caption lines
     lines.forEach((line, idx) => {
-      const y = cardY + 50 + (idx * lineHeight);
+      const y = capCardY + 52 + (idx * lineHeight);
 
-      // Black text stroke for 100% legibility on any background
-      ctx.lineWidth = 8;
+      // Black text stroke for 100% legibility on mobile screens
+      ctx.lineWidth = 10;
       ctx.strokeStyle = '#000000';
       ctx.textAlign = 'center';
       ctx.strokeText(line, 1080 / 2, y);
 
-      // Glowing text fill (Yellow or White)
+      // Text fill (Highlight Cyan or Bright Yellow)
       ctx.fillStyle = isHighlight ? '#38bdf8' : '#FFE600';
       ctx.fillText(line, 1080 / 2, y);
     });
 
-    const outPath = path.join(this.tempDir, `caption_${crypto.randomUUID()}.png`);
+    // 5. Bottom Safe Area Callout
+    const footerY = 1720;
+    ctx.font = 'bold 28px sans-serif';
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.75)';
+    ctx.fillText('🔔 SUBSCRIBE FOR 2 DAILY AI SHORTS', 1080 / 2, footerY);
+
+    // 6. Bottom Video Progress Bar
+    const progW = Math.max(Math.min(progressRatio * 1080, 1080), 0);
+    ctx.fillStyle = '#38bdf8';
+    ctx.fillRect(0, 1886, progW, 14);
+
+    const fileName = `frame_${String(index).padStart(4, '0')}.png`;
+    const outPath = path.join(tempJobDir, fileName);
     fs.writeFileSync(outPath, canvas.toBuffer('image/png'));
-    return outPath;
+    return fileName;
   }
 
-  /**
-   * Helper to wrap text into lines fitting max width
-   */
   wrapText(ctx, text, maxWidth) {
     const words = text.split(' ');
     const lines = [];
@@ -193,7 +205,7 @@ class VideoComposer {
   }
 
   /**
-   * Compose the final YouTube Shorts video
+   * Compose the final YouTube Shorts video using low-memory sequential frame demuxer
    */
   async composeVideo({ tool_name, topic, script, audioPath, audioDuration, timedChunks, onProgress }) {
     // Strictly cap video duration to <= 29.5s
@@ -202,63 +214,51 @@ class VideoComposer {
 
     const videoId = crypto.randomUUID();
     const finalVideoPath = path.join(this.outputDir, `short_${videoId}.mp4`);
+    const tempJobDir = path.join(this.tempDir, `render_${videoId}`);
+    if (!fs.existsSync(tempJobDir)) fs.mkdirSync(tempJobDir, { recursive: true });
 
-    // 1. Render Header overlay
-    const headerImgPath = this.renderHeaderCard(tool_name, topic);
+    // 1. Render sequential frames for each timed chunk
+    const frameFiles = [];
+    const totalChunks = timedChunks.length;
 
-    // 2. Render each timed caption chunk as an image card
-    const captionCards = timedChunks.map((chunk, i) => {
+    timedChunks.forEach((chunk, i) => {
+      const dur = Math.max(chunk.end - chunk.start, 0.4);
       const isHighlight = i % 2 === 1;
-      const imgPath = this.renderCaptionCard(chunk.text, isHighlight);
-      return {
-        imgPath,
-        start: chunk.start,
-        end: Math.min(chunk.end, finalDuration)
-      };
+      const progressRatio = Math.min(chunk.end / finalDuration, 1.0);
+
+      const fileName = this.renderCompleteFrame({
+        tool_name,
+        topic,
+        captionText: chunk.text,
+        isHighlight,
+        progressRatio,
+        tempJobDir,
+        index: i
+      });
+
+      frameFiles.push({ fileName, dur });
     });
 
-    // 3. Build FFmpeg command with filter complex
-    // Inputs:
-    // [0]: Animated gradient/cyber background
-    // [1]: Audio voiceover
-    // [2]: Header overlay
-    // [3..N+2]: Caption chunk images
+    // 2. Build FFmpeg concat script (sequential demuxer - requires less than 35MB RAM total)
+    const concatPath = path.join(tempJobDir, 'concat.txt');
+    let concatContent = 'ffconcat version 1.0\n';
+    for (const f of frameFiles) {
+      concatContent += `file '${f.fileName}'\nduration ${f.dur.toFixed(2)}\n`;
+    }
+    // Repeat final frame per FFmpeg concat specification
+    if (frameFiles.length > 0) {
+      concatContent += `file '${frameFiles[frameFiles.length - 1].fileName}'\n`;
+    }
+    fs.writeFileSync(concatPath, concatContent, 'utf-8');
+
+    // 3. Low-memory FFmpeg execution
+    const absAudioPath = path.resolve(audioPath);
+    const absOutVideoPath = path.resolve(finalVideoPath);
+
     const ffmpegArgs = [
       '-y',
-      // Base background: 1080x1920 30fps dark navy gradient with subtle tech motion
-      '-f', 'lavfi',
-      '-i', `gradients=s=1080x1920:r=30:d=${finalDuration}:c0=0x060913:c1=0x0f172a:c2=0x1e1b4b:x0=0:y0=0:x1=1080:y1=1920`,
-      // Voiceover audio
-      '-i', audioPath,
-      // Header overlay image
-      '-loop', '1', '-t', `${finalDuration}`, '-i', headerImgPath
-    ];
-
-    // Add each caption image as looped input
-    for (const card of captionCards) {
-      ffmpegArgs.push('-loop', '1', '-t', `${finalDuration}`, '-i', card.imgPath);
-    }
-
-    // Build filter_complex
-    // Base: overlay header on background, plus dynamic progress bar at bottom
-    let filterGraph = `[0:v][2:v]overlay=0:0[v_base];`;
-    filterGraph += `[v_base]drawbox=x=0:y=1880:w='1080*t/${finalDuration}':h=14:color=0x38bdf8@0.95:t=fill[v_prog];`;
-
-    let lastStream = 'v_prog';
-    captionCards.forEach((card, idx) => {
-      const inputIdx = 3 + idx;
-      const outStream = `v_cap_${idx}`;
-      filterGraph += `[${lastStream}][${inputIdx}:v]overlay=0:0:enable='between(t,${card.start.toFixed(2)},${card.end.toFixed(2)})'[${outStream}];`;
-      lastStream = outStream;
-    });
-
-    // Strip trailing semicolon from filter graph
-    filterGraph = filterGraph.replace(/;$/, '');
-
-    ffmpegArgs.push(
-      '-filter_complex', filterGraph,
-      '-map', `[${lastStream}]`,
-      '-map', '1:a',
+      '-f', 'concat', '-safe', '0', '-i', concatPath,
+      '-i', absAudioPath,
       '-c:v', 'libx264',
       '-preset', 'veryfast',
       '-crf', '22',
@@ -267,12 +267,12 @@ class VideoComposer {
       '-b:a', '192k',
       '-t', `${finalDuration}`,
       '-movflags', '+faststart',
-      finalVideoPath
-    );
+      absOutVideoPath
+    ];
 
     await new Promise((resolve, reject) => {
-      logger.info(`Starting FFmpeg video composition process using: ${ffmpegBin}...`);
-      const proc = spawn(ffmpegBin, ffmpegArgs);
+      logger.info(`Starting low-overhead FFmpeg composition: ${ffmpegBin}...`);
+      const proc = spawn(ffmpegBin, ffmpegArgs, { cwd: tempJobDir });
 
       let stderr = '';
       proc.stderr.on('data', (d) => {
@@ -304,10 +304,7 @@ class VideoComposer {
 
     // Clean up temporary image files
     try {
-      if (fs.existsSync(headerImgPath)) fs.unlinkSync(headerImgPath);
-      for (const card of captionCards) {
-        if (fs.existsSync(card.imgPath)) fs.unlinkSync(card.imgPath);
-      }
+      fs.rmSync(tempJobDir, { recursive: true, force: true });
     } catch (e) {}
 
     // 4. Validate output video strictly
