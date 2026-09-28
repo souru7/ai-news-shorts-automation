@@ -19,19 +19,7 @@ const app = express();
 
 // Security headers with relaxed CSP for dashboard video/audio previews and Google fonts
 app.use(helmet({
-  contentSecurityPolicy: {
-    directives: {
-      defaultSrc: ["'self'"],
-      scriptSrc: ["'self'", "'unsafe-inline'", "https://cdn.jsdelivr.net"],
-      scriptSrcElem: ["'self'", "'unsafe-inline'", "https://cdn.jsdelivr.net"],
-      scriptSrcAttr: ["'unsafe-inline'"],
-      styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
-      fontSrc: ["'self'", "https://fonts.gstatic.com"],
-      imgSrc: ["'self'", "data:", "https:", "http:"],
-      mediaSrc: ["'self'", "data:", "blob:", "http:", "https:"],
-      connectSrc: ["'self'"]
-    }
-  },
+  contentSecurityPolicy: false,
   crossOriginResourcePolicy: { policy: "cross-origin" }
 }));
 
@@ -82,6 +70,26 @@ app.use('/media', express.static(path.join(__dirname, 'storage'), { index: false
 app.use(express.static(path.join(__dirname, 'public'), { index: false }));
 
 // Login API
+
+// Form POST fallback login
+app.post("/login", loginLimiter, async (req, res) => {
+  try {
+    const { username, password } = req.body;
+    const { token } = await authService.login(username, password);
+
+    res.cookie("auth_token", token, {
+      httpOnly: true,
+      secure: env.NODE_ENV === "production",
+      sameSite: "lax",
+      maxAge: 7 * 24 * 60 * 60 * 1000
+    });
+
+    res.redirect("/");
+  } catch (err) {
+    res.redirect("/login?error=" + encodeURIComponent(err.message));
+  }
+});
+
 app.post('/api/auth/login', loginLimiter, async (req, res) => {
   try {
     const { username, password } = req.body;

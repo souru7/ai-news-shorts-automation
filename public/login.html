@@ -83,15 +83,15 @@
 
     <div id="error-box" class="error-box"></div>
 
-    <form id="login-form">
+    <form id="login-form" method="POST" action="/login">
       <div class="form-group">
         <label for="username">USERNAME</label>
-        <input type="text" id="username" value="admin" required autofocus autocomplete="username">
+        <input type="text" id="username" name="username" value="admin" required autofocus autocomplete="username">
       </div>
 
       <div class="form-group">
         <label for="password">PASSWORD</label>
-        <input type="password" id="password" value="Admin@Secure2026!" required placeholder="Enter admin password" autocomplete="current-password">
+        <input type="password" id="password" name="password" value="Admin@Secure2026!" required placeholder="Enter admin password" autocomplete="current-password">
       </div>
 
       <div style="background:rgba(56, 189, 248, 0.08); border:1px solid rgba(56, 189, 248, 0.2); border-radius:10px; padding:12px; margin-bottom:18px; text-align:left; font-size:12px;">
@@ -155,6 +155,16 @@
     }
 
     document.addEventListener('DOMContentLoaded', () => {
+      // Check if error query param is present
+      const params = new URLSearchParams(window.location.search);
+      if (params.get('error')) {
+        const errBox = document.getElementById('error-box');
+        if (errBox) {
+          errBox.textContent = params.get('error');
+          errBox.style.display = 'block';
+        }
+      }
+
       const form = document.getElementById('login-form');
       if (form) form.addEventListener('submit', handleLogin);
       const fillBtn = document.getElementById('btn-fill-creds');
