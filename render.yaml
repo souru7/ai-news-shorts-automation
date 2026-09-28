@@ -1,0 +1,56 @@
+services:
+  - type: web
+    name: ai-news-shorts-automation
+    env: node
+    plan: starter
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 10000
+      - key: APP_URL
+        sync: false
+      - key: ADMIN_USERNAME
+        value: admin
+      - key: ADMIN_PASSWORD
+        generateValue: true
+      - key: JWT_SECRET
+        generateValue: true
+      - key: CRON_SECRET
+        generateValue: true
+      - key: DRY_RUN
+        value: "false"
+      - key: DAILY_QUOTA
+        value: "2"
+      - key: DATABASE_URL
+        fromDatabase:
+          name: ai-news-shorts-db
+          property: connectionString
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: TTS_PROVIDER
+        value: edge
+      - key: TTS_VOICE
+        value: en-US-ChristopherNeural
+      - key: YOUTUBE_CLIENT_ID
+        sync: false
+      - key: YOUTUBE_CLIENT_SECRET
+        sync: false
+      - key: YOUTUBE_REDIRECT_URI
+        sync: false
+      - key: YOUTUBE_REFRESH_TOKEN
+        sync: false
+      - key: YOUTUBE_PRIVACY_STATUS
+        value: public
+      - key: STORAGE_PROVIDER
+        value: local
+
+databases:
+  - name: ai-news-shorts-db
+    plan: free
+    databaseName: ytshorts
+    user: ytshorts_user

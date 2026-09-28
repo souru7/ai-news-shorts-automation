@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI YouTube Shorts Automation Studio</title>
+  <link rel="stylesheet" href="/css/dashboard.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>⚡</text></svg>">
+</head>
+<body>
+
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="brand-icon">⚡</div>
+      <div>
+        <div class="brand-title">AI Shorts Bot</div>
+        <div class="brand-sub">Autonomous AI News</div>
+      </div>
+    </div>
+
+    <ul class="nav-links">
+      <li class="nav-item active" onclick="switchTab('dashboard')">
+        <svg viewBox="0 0 24 24"><path d="M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8V11h-8v10zm0-18v6h8V3h-8z"/></svg>
+        Dashboard
+      </li>
+      <li class="nav-item" onclick="switchTab('videos')">
+        <svg viewBox="0 0 24 24"><path d="M4 6H2v14c0 1.1.9 2 2 2h14v-2H4V6zm16-4H8c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-8 12.5v-9l6 4.5-6 4.5z"/></svg>
+        Videos & Shorts
+      </li>
+      <li class="nav-item" onclick="switchTab('research')">
+        <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/></svg>
+        AI Research Feed
+      </li>
+      <li class="nav-item" onclick="switchTab('settings')">
+        <svg viewBox="0 0 24 24"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg>
+        Automation Settings
+      </li>
+      <li class="nav-item" onclick="switchTab('logs')">
+        <svg viewBox="0 0 24 24"><path d="M20 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm-5 14H4v-4h11v4zm0-5H4V9h11v4zm5 5h-4V9h4v9z"/></svg>
+        System Logs
+      </li>
+    </ul>
+
+    <div class="sidebar-footer">
+      <button class="btn-logout" onclick="logout()">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M17 7l-1.41 1.41L18.17 11H8v2h10.17l-2.58 2.58L17 17l5-5zM4 5h8V3H4c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h8v-2H4V5z"/></svg>
+        Logout
+      </button>
+    </div>
+  </aside>
+
+  <!-- Main View -->
+  <main class="main-wrapper">
+    <!-- Top Header -->
+    <header class="top-bar">
+      <div>
+        <h1 class="page-title" id="page-heading">Automation Dashboard</h1>
+        <p class="page-desc" id="page-subheading">Publishing 2 High-Impact AI News Shorts Daily to YouTube</p>
+      </div>
+      <div class="action-buttons">
+        <button class="btn btn-secondary" onclick="refreshData()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/></svg>
+          Refresh
+        </button>
+        <button class="btn btn-primary" onclick="triggerManualShort()">
+          ⚡ Generate Short Now
+        </button>
+        <a id="btn-yt-connect" href="/auth/youtube" class="btn btn-yt">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M10 15l5.19-3L10 9v6m11.56-7.83c.13.47.22 1.1.28 1.9.07.8.1 1.49.1 2.09L22 12c0 2.19-.16 3.8-.44 4.83-.25.9-.83 1.48-1.73 1.73-.47.13-1.33.22-2.65.28-1.3.07-2.49.1-3.59.1L12 19c-4.19 0-6.8-.16-7.83-.44-.9-.25-1.48-.83-1.73-1.73-.13-.47-.22-1.1-.28-1.9-.07-.8-.1-1.49-.1-2.09L2 12c0-2.19.16-3.8.44-4.83.25-.9.83-1.48 1.73-1.73.47-.13 1.33-.22 2.65-.28 1.3-.07 2.49-.1 3.59-.1L12 5c4.19 0 6.8.16 7.83.44.9.25 1.48.83 1.73 1.73z"/></svg>
+          Connect YouTube
+        </a>
+      </div>
+    </header>
+
+    <!-- Stat Cards Grid -->
+    <div class="stats-grid">
+      <div class="stat-card">
+        <div class="stat-header">
+          <span>TODAY'S SHORTS QUOTA</span>
+          <span>⚡</span>
+        </div>
+        <div class="stat-value" id="stat-quota-progress">0 / 2</div>
+        <div class="stat-meta" id="stat-quota-desc">Daily automatic target: 2 Shorts</div>
+      </div>
+
+      <div class="stat-card">
+        <div class="stat-header">
+          <span>YOUTUBE PUBLISHED TODAY</span>
+          <span>📺</span>
+        </div>
+        <div class="stat-value" id="stat-uploaded-today">0</div>
+        <div class="stat-meta" id="stat-last-upload">Last: No uploads today yet</div>
+      </div>
+
+      <div class="stat-card">
+        <div class="stat-header">
+          <span>YOUTUBE CHANNEL</span>
+          <span>🔗</span>
+        </div>
+        <div class="stat-value" id="stat-yt-channel" style="font-size:20px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Checking...</div>
+        <div class="stat-meta" id="stat-yt-subs">OAuth Status</div>
+      </div>
+
+      <div class="stat-card">
+        <div class="stat-header">
+          <span>PIPELINE ENGINE</span>
+          <span>🚀</span>
+        </div>
+        <div class="stat-value" id="stat-engine-mode" style="color:var(--accent-cyan); font-size:24px;">Active</div>
+        <div class="stat-meta" id="stat-total-videos">Total Produced: 0</div>
+      </div>
+    </div>
+
+    <!-- Section 1: Dashboard -->
+    <section id="section-dashboard" class="section active">
+      <div class="content-card">
+        <div class="card-title-bar">
+          <div class="card-title">Recent Automated Shorts</div>
+          <button class="btn btn-secondary" style="padding: 6px 14px; font-size: 12px;" onclick="switchTab('videos')">View All</button>
+        </div>
+        <div class="table-responsive">
+          <table>
+            <thead>
+              <tr>
+                <th>Preview</th>
+                <th>Topic / AI Tool</th>
+                <th>Script Preview</th>
+                <th>Status</th>
+                <th>Published Link</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody id="dashboard-recent-table">
+              <tr><td colspan="6" style="text-align:center; padding:30px;">Loading video history...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- Section 2: All Videos -->
+    <section id="section-videos" class="section">
+      <div class="content-card">
+        <div class="card-title-bar">
+          <div class="card-title">All Generated AI Shorts</div>
+        </div>
+        <div class="table-responsive">
+          <table>
+            <thead>
+              <tr>
+                <th>Video</th>
+                <th>Tool Name</th>
+                <th>Headline & Details</th>
+                <th>Duration</th>
+                <th>Status</th>
+                <th>YouTube URL</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="all-videos-table">
+              <tr><td colspan="7" style="text-align:center; padding:30px;">Loading all videos...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- Section 3: Research Feed -->
+    <section id="section-research" class="section">
+      <div class="content-card">
+        <div class="card-title-bar">
+          <div class="card-title">Automated AI Topic Research Catalog</div>
+        </div>
+        <div class="table-responsive">
+          <table>
+            <thead>
+              <tr>
+                <th>Tool Name</th>
+                <th>Headline</th>
+                <th>Summary</th>
+                <th>Source URL</th>
+                <th>Discovered</th>
+              </tr>
+            </thead>
+            <tbody id="research-table">
+              <tr><td colspan="5" style="text-align:center; padding:30px;">Loading researched topics...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- Section 4: Automation Settings -->
+    <section id="section-settings" class="section">
+      <div class="content-card" style="max-width: 800px; padding: 30px;">
+        <div class="card-title" style="margin-bottom: 24px;">Configure Automation Behavior</div>
+        
+        <form id="settings-form" onsubmit="saveSettings(event)" style="display:flex; flex-direction:column; gap:20px;">
+          <div>
+            <label style="display:block; font-size:13px; font-weight:600; margin-bottom:8px;">DAILY SHORTS TARGET (QUOTA)</label>
+            <input type="number" id="setting-quota" min="1" max="10" value="2" style="width:100%; padding:12px; border-radius:8px; background:rgba(0,0,0,0.4); border:1px solid var(--border-color); color:#fff;">
+            <p style="font-size:12px; color:var(--text-dim); margin-top:4px;">Default is 2 Shorts per day (1 morning, 1 evening).</p>
+          </div>
+
+          <div>
+            <label style="display:block; font-size:13px; font-weight:600; margin-bottom:8px;">AI VOICE (TEXT TO SPEECH)</label>
+            <select id="setting-voice" style="width:100%; padding:12px; border-radius:8px; background:#0d1224; border:1px solid var(--border-color); color:#fff;">
+              <option value="en-US-ChristopherNeural">Microsoft Neural (Christopher - Energetic Tech Male)</option>
+              <option value="en-US-GuyNeural">Microsoft Neural (Guy - Deep Storyteller)</option>
+              <option value="en-US-JennyNeural">Microsoft Neural (Jenny - Natural Female)</option>
+              <option value="en-US-AriaNeural">Microsoft Neural (Aria - Dynamic Host)</option>
+              <option value="alloy">OpenAI (Alloy)</option>
+              <option value="onyx">OpenAI (Onyx)</option>
+            </select>
+          </div>
+
+          <div>
+            <label style="display:block; font-size:13px; font-weight:600; margin-bottom:8px;">YOUTUBE PRIVACY STATUS</label>
+            <select id="setting-privacy" style="width:100%; padding:12px; border-radius:8px; background:#0d1224; border:1px solid var(--border-color); color:#fff;">
+              <option value="public">Public (Immediately visible to subscribers & Shorts feed)</option>
+              <option value="unlisted">Unlisted (Accessible only via direct link for testing)</option>
+              <option value="private">Private (Visible only in YouTube Studio)</option>
+            </select>
+          </div>
+
+          <div>
+            <label style="display:block; font-size:13px; font-weight:600; margin-bottom:8px;">DEFAULT SHORTS HASHTAGS</label>
+            <input type="text" id="setting-hashtags" value="#AI #AITools #TechNews #Productivity #Shorts" style="width:100%; padding:12px; border-radius:8px; background:rgba(0,0,0,0.4); border:1px solid var(--border-color); color:#fff;">
+          </div>
+
+          <div style="display:flex; align-items:center; gap:12px; padding:12px; background:rgba(56,189,248,0.06); border-radius:8px; border:1px solid var(--border-highlight);">
+            <input type="checkbox" id="setting-dryrun" style="width:20px; height:20px;">
+            <div>
+              <div style="font-weight:600; font-size:14px;">DRY RUN MODE</div>
+              <div style="font-size:12px; color:var(--text-muted);">Fully research, generate script, synthesize voice, build 9:16 video & validate without publishing to YouTube.</div>
+            </div>
+          </div>
+
+          <button type="submit" class="btn btn-primary" style="margin-top:10px;">Save Settings</button>
+        </form>
+      </div>
+    </section>
+
+    <!-- Section 5: Live Logs -->
+    <section id="section-logs" class="section">
+      <div class="content-card">
+        <div class="card-title-bar">
+          <div class="card-title">Live Application & Cron Execution Logs</div>
+          <button class="btn btn-secondary" style="padding:6px 14px; font-size:12px;" onclick="loadLogs()">Clear / Reload</button>
+        </div>
+        <div class="terminal-window" id="terminal-logs">
+          <!-- Live log lines injected here -->
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- Video Preview Modal -->
+  <div class="modal" id="video-modal">
+    <div class="modal-content">
+      <button class="modal-close" onclick="closeModal()">&times;</button>
+      <h3 style="margin-bottom:14px; font-family:'Outfit'; color:#38bdf8;" id="modal-video-title">YouTube Short Preview</h3>
+      <div class="modal-video-container">
+        <video id="modal-player" controls autoplay playsinline loop></video>
+      </div>
+      <p id="modal-video-topic" style="font-size:13px; color:var(--text-muted); text-align:center; max-width:360px;"></p>
+    </div>
+  </div>
+
+  <script src="/js/dashboard.js"></script>
+</body>
+</html>

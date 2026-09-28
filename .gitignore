@@ -1,0 +1,9 @@
+node_modules/
+.env
+storage/database.sqlite
+storage/database.sqlite-journal
+storage/videos/*.mp4
+storage/audio/*.mp3
+storage/temp/*
+logs/*.log
+.DS_Store

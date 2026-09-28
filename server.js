@@ -1,0 +1,126 @@
+const express = require('express');
+const path = require('path');
+const cors = require('cors');
+const helmet = require('helmet');
+const cookieParser = require('cookie-parser');
+const rateLimit = require('express-rate-limit');
+
+const env = require('./src/config/env');
+const logger = require('./src/utils/logger');
+const db = require('./src/database/db');
+const authService = require('./src/auth/authService');
+const { requireAuth } = require('./src/auth/authMiddleware');
+
+const cronRouter = require('./src/api/cron');
+const youtubeRouter = require('./src/api/youtubeAuth');
+const adminRouter = require('./src/api/adminApi');
+
+const app = express();
+
+// Security headers with relaxed CSP for dashboard video/audio previews and Google fonts
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'", "'unsafe-inline'", "https://cdn.jsdelivr.net"],
+      styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
+      fontSrc: ["'self'", "https://fonts.gstatic.com"],
+      imgSrc: ["'self'", "data:", "https:", "http:"],
+      mediaSrc: ["'self'", "data:", "blob:", "http:", "https:"],
+      connectSrc: ["'self'"]
+    }
+  },
+  crossOriginResourcePolicy: { policy: "cross-origin" }
+}));
+
+app.use(cors());
+app.use(cookieParser());
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+
+// Login rate limiter: 10 attempts per 15 minutes
+const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 15,
+  message: { error: 'Too many login attempts. Please try again after 15 minutes.' }
+});
+
+// Render production health check
+app.get('/health', (req, res) => {
+  res.status(200).json({
+    status: 'healthy',
+    uptime: Math.round(process.uptime()),
+    timestamp: new Date().toISOString(),
+    env: env.NODE_ENV,
+    storage: env.STORAGE_PROVIDER
+  });
+});
+
+// Serve generated media files
+app.use('/media', express.static(path.join(__dirname, 'storage')));
+
+// Serve static frontend assets
+app.use(express.static(path.join(__dirname, 'public')));
+
+// Login API
+app.post('/api/auth/login', loginLimiter, async (req, res) => {
+  try {
+    const { username, password } = req.body;
+    const { token, user } = await authService.login(username, password);
+
+    // Set secure HTTP-only cookie
+    res.cookie('auth_token', token, {
+      httpOnly: true,
+      secure: env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
+    });
+
+    res.json({ success: true, token, user });
+  } catch (err) {
+    res.status(401).json({ error: err.message });
+  }
+});
+
+// Logout API
+app.post('/api/auth/logout', (req, res) => {
+  res.clearCookie('auth_token');
+  res.json({ success: true, message: 'Logged out successfully' });
+});
+
+// Public Login page
+app.get('/login', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public/login.html'));
+});
+
+// Protected Dashboard route
+app.get('/', requireAuth, (req, res) => {
+  res.sendFile(path.join(__dirname, 'public/index.html'));
+});
+
+// Mount modular sub-routers
+app.use('/api/cron', cronRouter);
+app.use('/', youtubeRouter);
+app.use('/api/admin', adminRouter);
+
+// Start server after DB initialization
+async function startServer() {
+  try {
+    await db.initDatabase();
+    app.listen(env.PORT, () => {
+      logger.info(`=================================================`);
+      logger.info(`⚡ AI YouTube Shorts Automation Server is LIVE!`);
+      logger.info(`🚀 Dashboard: http://localhost:${env.PORT}`);
+      logger.info(`🔑 Cron Endpoint: POST http://localhost:${env.PORT}/api/cron/run`);
+      logger.info(`📺 YouTube Connect: http://localhost:${env.PORT}/auth/youtube`);
+      logger.info(`=================================================`);
+    });
+  } catch (err) {
+    logger.error(`Server startup failed: ${err.message}`, { error: err.stack });
+    process.exit(1);
+  }
+}
+
+startServer();
+
+module.exports = app;

@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin Login - AI YouTube Shorts Studio</title>
+  <link rel="stylesheet" href="/css/dashboard.css">
+  <style>
+    body {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      margin: 0;
+      padding: 20px;
+    }
+    .login-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 20px;
+      padding: 40px;
+      max-width: 420px;
+      width: 100%;
+      backdrop-filter: blur(16px);
+      box-shadow: 0 12px 40px rgba(0, 0, 0, 0.6);
+      text-align: center;
+    }
+    .login-icon {
+      width: 56px;
+      height: 56px;
+      background: linear-gradient(135deg, var(--accent-cyan), var(--accent-purple));
+      border-radius: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 30px;
+      margin: 0 auto 20px auto;
+      box-shadow: var(--glow-cyan);
+    }
+    .form-group {
+      text-align: left;
+      margin-bottom: 20px;
+    }
+    .form-group label {
+      display: block;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-muted);
+      margin-bottom: 8px;
+    }
+    .form-group input {
+      width: 100%;
+      padding: 14px 16px;
+      border-radius: 10px;
+      background: rgba(10, 15, 30, 0.8);
+      border: 1px solid var(--border-color);
+      color: #fff;
+      font-size: 15px;
+      outline: none;
+      transition: 0.2s;
+    }
+    .form-group input:focus {
+      border-color: var(--accent-cyan);
+      box-shadow: inset 0 0 8px rgba(56, 189, 248, 0.2);
+    }
+    .error-box {
+      background: rgba(244, 63, 94, 0.15);
+      border: 1px solid rgba(244, 63, 94, 0.4);
+      color: #fb7185;
+      padding: 10px;
+      border-radius: 8px;
+      font-size: 13px;
+      margin-bottom: 20px;
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  <div class="login-card">
+    <div class="login-icon">⚡</div>
+    <h2 style="font-family:'Outfit'; font-size:24px; margin-bottom:6px;">Sign In to Studio</h2>
+    <p style="color:var(--text-muted); font-size:13px; margin-bottom:28px;">Automated 2x Daily AI YouTube Shorts</p>
+
+    <div id="error-box" class="error-box"></div>
+
+    <form onsubmit="handleLogin(event)">
+      <div class="form-group">
+        <label>USERNAME</label>
+        <input type="text" id="username" value="admin" required autofocus>
+      </div>
+
+      <div class="form-group">
+        <label>PASSWORD</label>
+        <input type="password" id="password" required placeholder="Enter admin password">
+      </div>
+
+      <button type="submit" class="btn btn-primary" style="width:100%; justify-content:center; padding:14px; font-size:15px; margin-top:10px;">
+        Access Dashboard
+      </button>
+    </form>
+  </div>
+
+  <script>
+    async function handleLogin(e) {
+      e.preventDefault();
+      const errBox = document.getElementById('error-box');
+      errBox.style.display = 'none';
+
+      const username = document.getElementById('username').value.trim();
+      const password = document.getElementById('password').value;
+
+      try {
+        const res = await fetch('/api/auth/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username, password })
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          throw new Error(data.error || 'Login failed');
+        }
+        window.location.href = '/';
+      } catch (err) {
+        errBox.textContent = err.message;
+        errBox.style.display = 'block';
+      }
+    }
+  </script>
+</body>
+</html>
