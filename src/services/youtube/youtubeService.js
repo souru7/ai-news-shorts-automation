@@ -17,7 +17,13 @@ class YouTubeService {
   async getClientCredentials() {
     let clientId = this.clientId || env.YOUTUBE_CLIENT_ID;
     let clientSecret = this.clientSecret || env.YOUTUBE_CLIENT_SECRET;
-    let redirectUri = this.redirectUri;
+
+    // Automatically resolve production Render URL or configured APP_URL
+    let baseUrl = process.env.RENDER_EXTERNAL_URL || env.APP_URL;
+    if (!baseUrl || baseUrl.includes('localhost')) {
+      baseUrl = 'https://ai-news-shorts-automation.onrender.com';
+    }
+    let redirectUri = `${baseUrl.replace(/\/$/, '')}/auth/youtube/callback`;
 
     try {
       const idSetting = await db.query('SELECT value FROM settings WHERE key = $1', ['youtube_client_id']);
@@ -25,6 +31,9 @@ class YouTubeService {
 
       const secretSetting = await db.query('SELECT value FROM settings WHERE key = $1', ['youtube_client_secret']);
       if (secretSetting.rows.length > 0 && secretSetting.rows[0].value) clientSecret = secretSetting.rows[0].value;
+
+      const uriSetting = await db.query('SELECT value FROM settings WHERE key = $1', ['youtube_redirect_uri']);
+      if (uriSetting.rows.length > 0 && uriSetting.rows[0].value) redirectUri = uriSetting.rows[0].value;
     } catch (e) {}
 
     return { clientId, clientSecret, redirectUri };
